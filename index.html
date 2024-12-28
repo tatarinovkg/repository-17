@@ -13,16 +13,21 @@
             color: #333;
             min-height: 100vh;
             overflow-y: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center; /* Центрируем контент */
+            flex-direction: column; /* Вертикальное выравнивание */
         }
 
         #content {
             width: 100%;
             max-width: 600px;
-            margin: 20px auto;
+            padding: 20px;
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
             gap: 20px;
-            padding: 20px;
+            text-align: center; /* Центрирование текста */
         }
 
         h1, h2 {
@@ -198,7 +203,13 @@
         });
 
         tg.MainButton.text = "Назад";
-        tg.MainButton.onClick(() => fetchGroups());
+        tg.MainButton.onClick(() => {
+            if (currentGroupId !== null) {
+                fetchGroups();
+            } else {
+                tg.close();
+            }
+        });
     }
 
     async function fetchServiceDetails(serviceId) {
@@ -251,7 +262,9 @@
         `;
 
         tg.MainButton.text = "Назад";
-        tg.MainButton.onClick(() => fetchServices(currentGroupId));
+        tg.MainButton.onClick(() => {
+            fetchServices(currentGroupId);
+        });
     }
 
     // Инициализация приложения
