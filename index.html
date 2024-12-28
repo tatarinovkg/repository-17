@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f7f7f8;
+            color: #333;
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+
+        #content {
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        h1, h2 {
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .group, .service {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .group:hover, .service:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .loading {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            color: #555;
+            font-size: 18px;
+        }
+
+        .spinner {
+            margin-bottom: 15px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .info h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .info p {
+            margin: 0;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+<div id="content">
+    <div class="loading">
+        <div class="spinner"></div>
+        <p>Пожалуйста, подождите, загрузка...</p>
+    </div>
+</div>
+<script>
+    const tg = window.Telegram.WebApp;
+    const apiBaseUrl = 'https://louse-precious-sincerely.ngrok-free.app/api/';
+
+    tg.expand();
+    tg.MainButton.text = "Закрыть приложение";
+    tg.MainButton.onClick(() => tg.close());
+    tg.MainButton.show();
+
+    let currentGroupId = null;
+
+    async function fetchGroups() {
+        const content = document.getElementById('content');
+        content.innerHTML = `
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Пожалуйста, подождите, загрузка...</p>
+            </div>
+        `;
+
+        try {
+            const response = await fetch(`${apiBaseUrl}groups`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            const groups = await response.json();
+            showGroups(groups);
+        } catch (error) {
+            content.innerHTML = `<h2>Ошибка при загрузке групп</h2>`;
+            console.error("Ошибка при получении групп:", error);
+        }
+    }
+
+    function showGroups(groups) {
+        const content = document.getElementById('content');
+        content.innerHTML = '<h2>Все группы с услугами</h2>';
+
+        groups.forEach(group => {
+            const groupDiv = document.createElement('div');
+            groupDiv.classList.add('group');
+            groupDiv.innerText = `${group.name}`;
+            groupDiv.onclick = () => fetchServices(group.groupID);
+            content.appendChild(groupDiv);
+        });
+
+        tg.MainButton.text = "Закрыть приложение";
+        tg.MainButton.onClick(() => tg.close());
+    }
+
+    async function fetchServices(groupId) {
+        currentGroupId = groupId;
+
+        const content = document.getElementById('content');
+        content.innerHTML = `
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Пожалуйста, подождите, загрузка...</p>
+            </div>
+        `;
+
+        try {
+            const response = await fetch(`${apiBaseUrl}services/${groupId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            const services = await response.json();
+            showServices(services);
+        } catch (error) {
+            content.innerHTML = `<h2>Ошибка при загрузке услуг</h2>`;
+            console.error("Ошибка при получении услуг:", error);
+        }
+    }
+
+    function showServices(services) {
+        const content = document.getElementById('content');
+        content.innerHTML = '<h2>Выберите услугу</h2>';
+
+        services.forEach(service => {
+            const serviceDiv = document.createElement('div');
+            serviceDiv.classList.add('service');
+            serviceDiv.innerText = `${service.name}`;
+
+            serviceDiv.onclick = () => {
+                if (service.servicesID) {
+                    fetchServiceDetails(service.servicesID);
+                } else {
+                    console.error("servicesID отсутствует или undefined:", service);
+                }
+            };
+
+            content.appendChild(serviceDiv);
+        });
+
+        tg.MainButton.text = "Назад";
+        tg.MainButton.onClick(() => fetchGroups());
+    }
+
+    async function fetchServiceDetails(serviceId) {
+        if (!serviceId || typeof serviceId !== 'number') {
+            console.error("Передан некорректный serviceId:", serviceId);
+            return;
+        }
+
+        const content = document.getElementById('content');
+        content.innerHTML = `
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Пожалуйста, подождите, загрузка...</p>
+            </div>
+        `;
+
+        try {
+            const response = await fetch(`${apiBaseUrl}service_details/${serviceId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Ошибка сервера: ${response.status}`);
+            }
+
+            const service = await response.json();
+            if (service.error) {
+                content.innerHTML = `<h2>Ошибка: ${service.error}</h2>`;
+            } else {
+                showServiceDetails(service);
+            }
+        } catch (error) {
+            content.innerHTML = `<h2>Ошибка при загрузке данных услуги</h2>`;
+            console.error("Ошибка при получении подробностей услуги:", error);
+        }
+    }
+
+    function showServiceDetails(service) {
+        const content = document.getElementById('content');
+        content.innerHTML = `
+            <h2>Информация об услуге</h2>
+            <div class="info">
+                <h3>${service.name}</h3>
+                <p>Имя пользователя: ${service.usersName}</p>
+                <p>Контактная информация: ${service.contactInformation}</p>
+            </div>
+        `;
+
+        tg.MainButton.text = "Назад";
+        tg.MainButton.onClick(() => fetchServices(currentGroupId));
+    }
+
+    // Инициализация приложения
+    fetchGroups();
+</script>
+</body>
+</html>
