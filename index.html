@@ -14,40 +14,50 @@
             min-height: 100vh;
             overflow-y: auto;
             display: flex;
-            justify-content: flex-start; /* Изменено на flex-start */
+            justify-content: center;
             align-items: center;
             flex-direction: column;
-            padding: 20px; /* Добавлен отступ сверху */
+            padding: 20px;
+            box-sizing: border-box;
         }
 
         #content {
             width: 100%;
-            max-width: 600px;
+            max-width: 100%;
             padding: 20px;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
             gap: 20px;
+            align-items: center;
         }
 
         h1, h2 {
             margin: 10px 0;
-            text-align: center; /* Изменено на left */
+            text-align: center;
         }
 
-        .group, .service {
-            background: white;
+        .group, .service, .back-button {
+            background: #ffffff;
             padding: 15px;
+            width: 100%;
+            max-width: 100%;
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             text-align: center;
             cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+            font-size: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            word-wrap: break-word;
         }
 
-        .group:hover, .service:hover {
+        .group:hover, .service:hover, .back-button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 6px 8px rgb(200, 200, 200);
+            background-color: #f3f3f3;
         }
 
         .loading {
@@ -56,15 +66,15 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            position: absolute; /* Позиционирование на весь экран */
+            position: absolute;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            height: 100vh; /* Занимает весь экран */
+            height: 100vh;
             color: #555;
             font-size: 18px;
-            background-color: rgba(255, 255, 255, 0.7); /* Полупрозрачный фон */
+            background-color: rgba(255, 255, 255, 0.7);
         }
 
         .spinner {
@@ -85,6 +95,8 @@
         .info {
             background: white;
             padding: 15px;
+            width: 100%;
+            max-width: 100%;
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             text-align: center;
@@ -104,22 +116,29 @@
         }
 
         .back-button {
-            background-color: #007bff;
+            background-color: #298ee6;
             color: white;
-            padding: 15px;
-            border-radius: 12px;
+            width: 100%;
+            max-width: 100%;
+            padding: 15px; /* Добавляем padding */
+            box-sizing: border-box; /* Учитываем padding в размерах */
+            border-radius: 12px; /* Совпадает с блоками */
             border: none;
             cursor: pointer;
             text-align: center;
             font-size: 16px;
-            margin-top: 20px;
-            width: 100%;
-            transition: background-color 0.3s ease;
+            display: flex; /* Для выравнивания */
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
         }
 
         .back-button:hover {
-            background-color: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(200, 200, 200);
+            background-color: #267bc3;
         }
+
     </style>
 </head>
 <body>
@@ -139,11 +158,19 @@
     tg.MainButton.show();
 
     let currentGroupId = null;
+    let groupsCache = null;
+    let servicesCache = new Map();
+    let serviceDetailsCache = new Map();
 
     async function fetchGroups() {
+        if (groupsCache) {
+            showGroups(groupsCache);
+            return;
+        }
+
         const content = document.getElementById('content');
-        content.innerHTML =
-            `<div class="loading">
+        content.innerHTML = `
+            <div class="loading">
                 <div class="spinner"></div>
                 <p>Пожалуйста, подождите, загрузка...</p>
             </div>`;
@@ -156,6 +183,7 @@
                 }
             });
             const groups = await response.json();
+            groupsCache = groups;
             showGroups(groups);
         } catch (error) {
             content.innerHTML = `<h2>Ошибка при загрузке групп</h2>`;
@@ -177,11 +205,16 @@
     }
 
     async function fetchServices(groupId) {
+        if (servicesCache.has(groupId)) {
+            showServices(servicesCache.get(groupId));
+            return;
+        }
+
         currentGroupId = groupId;
 
         const content = document.getElementById('content');
-        content.innerHTML =
-            `<div class="loading">
+        content.innerHTML = `
+            <div class="loading">
                 <div class="spinner"></div>
                 <p>Пожалуйста, подождите, загрузка...</p>
             </div>`;
@@ -194,6 +227,7 @@
                 }
             });
             const services = await response.json();
+            servicesCache.set(groupId, services);
             showServices(services);
         } catch (error) {
             content.innerHTML = `<h2>Ошибка при загрузке услуг</h2>`;
@@ -221,7 +255,6 @@
             content.appendChild(serviceDiv);
         });
 
-        // Добавление кнопки "Назад к группам"
         const backButton = document.createElement('button');
         backButton.classList.add('back-button');
         backButton.innerText = 'Назад к группам';
@@ -235,9 +268,14 @@
             return;
         }
 
+        if (serviceDetailsCache.has(serviceId)) {
+            showServiceDetails(serviceDetailsCache.get(serviceId));
+            return;
+        }
+
         const content = document.getElementById('content');
-        content.innerHTML =
-            `<div class="loading">
+        content.innerHTML = `
+            <div class="loading">
                 <div class="spinner"></div>
                 <p>Пожалуйста, подождите, загрузка...</p>
             </div>`;
@@ -258,6 +296,7 @@
             if (service.error) {
                 content.innerHTML = `<h2>Ошибка: ${service.error}</h2>`;
             } else {
+                serviceDetailsCache.set(serviceId, service);
                 showServiceDetails(service);
             }
         } catch (error) {
@@ -268,22 +307,21 @@
 
     function showServiceDetails(service) {
         const content = document.getElementById('content');
-        content.innerHTML =
-            `<h2>Информация об услуге</h2>
+        content.innerHTML = `
+            <h2>Информация об услуге</h2>
             <div class="info">
                 <h3>${service.name}</h3>
                 <p>Имя пользователя: ${service.usersName}</p>
                 <p>Контактная информация: ${service.contactInformation}</p>
             </div>
             <button class="back-button" onclick="fetchServices(${currentGroupId})">Назад к услугам</button>
-            `;
+        `;
     }
 
     function showGroupsFromServices() {
-        fetchGroups(); // Функция для возвращения к группам
+        fetchGroups();
     }
 
-    // Инициализация приложения
     fetchGroups();
 </script>
 </body>
