@@ -1,328 +1,297 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>All services</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>New service</title>
     <style>
         body {
-            margin: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background-color: #f7f7f8;
-            color: #333;
-            min-height: 100vh;
-            overflow-y: auto;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
+            background-color: #f0f0f5;
             padding: 20px;
             box-sizing: border-box;
+            margin: 0;
         }
-
-        #content {
+        .container {
+            max-width: 90%;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .container h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: #000000;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333333;
+        }
+        .form-group .placeholder-example {
+            font-size: 14px;
+            color: #777777;
+            margin-top: -8px;
+            margin-bottom: 10px;
+        }
+        .form-group input {
             width: 100%;
-            max-width: 100%;
-            padding: 20px;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
             box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            align-items: center;
-        }
-
-        h1, h2 {
-            margin: 10px 0;
-            text-align: center;
-        }
-
-        .group, .service, .back-button {
-            background: #ffffff;
-            padding: 15px;
-            width: 100%;
-            max-width: 100%;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
             font-size: 16px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            word-wrap: break-word;
+            transition: border-color 0.5s ease;
+        }
+        .form-group input:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        @keyframes errorAnimation {
+            from {
+                border-color: #ccc;
+            }
+            to {
+                border-color: #ff0000;
+            }
+        }
+        .form-group input.error {
+            animation: errorAnimation 0.3s ease;
+            border-color: #ff0000;
+        }
+        .error-message {
+            color: #ff0000;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+        .submit-button {
+            width: 100%;
+            padding: 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            margin-top: 20px;
+        }
+        .submit-button:hover {
+            background-color: #0056b3;
+        }
+        .submit-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .disclaimer {
+            font-size: 12px;
+            color: #666666;
+            margin-top: 15px;
+        }
+        .disclaimer a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .disclaimer a:hover {
+            text-decoration: underline;
         }
 
-        .group:hover, .service:hover, .back-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 8px rgb(200, 200, 200);
-            background-color: #f3f3f3;
+        .loading-spinner {
+            display: none;
+            margin-top: 20px;
+            position: relative;
+            margin-bottom: 10px;
         }
-
-        .loading {
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            height: 100vh;
-            color: #555;
-            font-size: 18px;
-            background-color: rgba(255, 255, 255, 0.7);
-        }
-
-        .spinner {
-            margin-bottom: 15px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
+        .loading-spinner div {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #007bff;
             border-radius: 50%;
-            width: 30px;
-            height: 30px;
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
+            margin: 0 auto;
         }
-
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
 
-        .info {
-            background: white;
-            padding: 15px;
-            width: 100%;
-            max-width: 100%;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .info h3 {
-            margin: 0;
+        .loading-text {
             font-size: 18px;
+            color: #007bff;
+            margin-top: 10px;
+            font-weight: bold;
+            opacity: 0;
+            display: none;
+            animation: fadeIn 1s forwards;
+            color: #333;
         }
 
-        .info p {
-            margin: 0;
-            font-size: 16px;
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
-
-        .back-button {
-            background-color: #298ee6;
-            color: white;
-            width: 100%;
-            max-width: 100%;
-            padding: 15px; /* Добавляем padding */
-            box-sizing: border-box; /* Учитываем padding в размерах */
-            border-radius: 12px; /* Совпадает с блоками */
-            border: none;
-            cursor: pointer;
-            text-align: center;
-            font-size: 16px;
-            display: flex; /* Для выравнивания */
-            justify-content: center;
-            align-items: center;
-            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-        }
-
-        .back-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 8px rgba(200, 200, 200);
-            background-color: #267bc3;
-        }
-
     </style>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-<div id="content">
-    <div class="loading">
-        <div class="spinner"></div>
-        <p>Пожалуйста, подождите, загрузка...</p>
+<div class="container">
+    <h2>Вы можете предложить добавить свою услугу в бота, через некоторое время ваше предложение рассмотрят</h2>
+    <div class="form-group">
+        <label for="userName">Ваше имя</label>
+        <div class="placeholder-example">Например, Александр</div>
+        <input type="text" id="userName" name="userName">
+        <div class="error-message" id="userNameError">Пожалуйста, введите ваше имя.</div>
     </div>
+    <div class="form-group">
+        <label for="userService">Ваша услуга</label>
+        <div class="placeholder-example">Например, лучшие ноготочки в ЗХ</div>
+        <input type="text" id="userService" name="userService">
+        <div class="error-message" id="userServiceError">Пожалуйста, введите вашу услугу.</div>
+    </div>
+    <div class="form-group">
+        <label for="userContacts">Ваши контактные данные</label>
+        <div class="placeholder-example">Например, 8-999-99-99-999 или @username</div>
+        <input type="text" id="userContacts" name="userContacts">
+        <div class="error-message" id="userContactsError">Пожалуйста, введите ваши контактные данные.</div>
+    </div>
+    <div id="serverError" style="display:none; color:#ff0000; font-size:16px; margin-bottom:20px; text-align:center;"></div>
+
+    <!-- Загрузка -->
+    <div id="loadingSpinner" class="loading-spinner">
+        <div></div>
+    </div>
+    <div id="loadingText" class="loading-text">Пожалуйста, подождите...</div>
+
+    <button class="submit-button" id="submitButton" onclick="submitForm()">Отправить</button>
+    <p class="disclaimer">
+        Нажимая кнопку "Отправить", вы соглашаетесь с
+        <a href="https://telegra.ph/Soglashenie-na-obrabotku-personalnyh-dannyh-v-Telegram-bote-ZH-USLUGI-BOT-12-28">обработкой персональных данных</a> и
+        <a href="https://telegra.ph/Politika-konfidencialnosti-Telegram-bota-ZH-USLUGI-BOT-12-28">политикой конфиденциальности</a> бота.
+    </p>
 </div>
 <script>
-    const tg = window.Telegram.WebApp;
-    const apiBaseUrl = 'https://tatarinovkg.cloudpub.ru/api/';
+    document.addEventListener('DOMContentLoaded', () => {
+        const inputs = document.querySelectorAll('input');
 
+        inputs.forEach(input => {
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault(); // Предотвращаем стандартное поведение Enter
+                    input.blur(); // Убираем фокус с поля ввода
+                }
+            });
+        });
+    });
+
+    let tg = window.Telegram.WebApp;
     tg.expand();
     tg.MainButton.text = "Закрыть приложение";
     tg.MainButton.onClick(() => tg.close());
     tg.MainButton.show();
 
-    let currentGroupId = null;
-    let groupsCache = null;
-    let servicesCache = new Map();
-    let serviceDetailsCache = new Map();
+    function showError(fieldId, errorId, message) {
+        const field = document.getElementById(fieldId);
+        const error = document.getElementById(errorId);
+        field.classList.add('error');
+        error.textContent = message;
+        error.style.display = 'block';
+    }
 
-    async function fetchGroups() {
-        if (groupsCache) {
-            showGroups(groupsCache);
+    function hideError(fieldId, errorId) {
+        const field = document.getElementById(fieldId);
+        const error = document.getElementById(errorId);
+        field.classList.remove('error');
+        error.style.display = 'none';
+    }
+
+    function submitForm() {
+        // Скрываем все ошибки перед отправкой
+        hideError('userName', 'userNameError');
+        hideError('userService', 'userServiceError');
+        hideError('userContacts', 'userContactsError');
+        document.getElementById('serverError').style.display = 'none';
+
+        const userName = document.getElementById('userName').value.trim();
+        const userService = document.getElementById('userService').value.trim();
+        const userContacts = document.getElementById('userContacts').value.trim();
+
+        let hasError = false;
+
+        if (!userName) {
+            showError('userName', 'userNameError', 'Пожалуйста, введите ваше имя.');
+            hasError = true;
+        }
+
+        if (!userService) {
+            showError('userService', 'userServiceError', 'Пожалуйста, введите вашу услугу.');
+            hasError = true;
+        }
+
+        if (!userContacts) {
+            showError('userContacts', 'userContactsError', 'Пожалуйста, введите ваши контактные данные.');
+            hasError = true;
+        }
+
+        if (hasError) {
             return;
         }
 
-        const content = document.getElementById('content');
-        content.innerHTML = `
-            <div class="loading">
-                <div class="spinner"></div>
-                <p>Пожалуйста, подождите, загрузка...</p>
-            </div>`;
+        // Делаем кнопку неактивной и показываем загрузку
+        document.getElementById('submitButton').disabled = true;
+        document.getElementById('loadingSpinner').style.display = 'block';
+        document.getElementById('loadingText').style.display = 'block';
 
-        try {
-            const response = await fetch(`${apiBaseUrl}groups`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            const groups = await response.json();
-            groupsCache = groups;
-            showGroups(groups);
-        } catch (error) {
-            content.innerHTML = `<h2>Ошибка при загрузке групп</h2>`;
-            console.error("Ошибка при получении групп:", error);
-        }
-    }
+        const userId = tg.initDataUnsafe?.user?.id;
 
-    function showGroups(groups) {
-        const content = document.getElementById('content');
-        content.innerHTML = '<h2>Все группы с услугами</h2>';
+        const data = {
+            userId: userId,
+            name: userName,
+            service: userService,
+            contacts: userContacts
+        };
 
-        groups.forEach(group => {
-            const groupDiv = document.createElement('div');
-            groupDiv.classList.add('group');
-            groupDiv.innerText = group.name;
-            groupDiv.onclick = () => fetchServices(group.groupID);
-            content.appendChild(groupDiv);
-        });
-    }
+        fetch('https://tatarinovkg.cloudpub.ru/api/newService', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+            .then(response => {
+                const serverError = document.getElementById('serverError');
+                // Скрываем анимацию загрузки после получения ответа
+                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('loadingText').style.display = 'none';
 
-    async function fetchServices(groupId) {
-        if (servicesCache.has(groupId)) {
-            showServices(servicesCache.get(groupId));
-            return;
-        }
+                // Восстанавливаем кнопку
+                document.getElementById('submitButton').disabled = false;
 
-        currentGroupId = groupId;
-
-        const content = document.getElementById('content');
-        content.innerHTML = `
-            <div class="loading">
-                <div class="spinner"></div>
-                <p>Пожалуйста, подождите, загрузка...</p>
-            </div>`;
-
-        try {
-            const response = await fetch(`${apiBaseUrl}services/${groupId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            const services = await response.json();
-            servicesCache.set(groupId, services);
-            showServices(services);
-        } catch (error) {
-            content.innerHTML = `<h2>Ошибка при загрузке услуг</h2>`;
-            console.error("Ошибка при получении услуг:", error);
-        }
-    }
-
-    function showServices(services) {
-        const content = document.getElementById('content');
-        content.innerHTML = '<h2>Выберите услугу</h2>';
-
-        services.forEach(service => {
-            const serviceDiv = document.createElement('div');
-            serviceDiv.classList.add('service');
-            serviceDiv.innerText = service.name;
-
-            serviceDiv.onclick = () => {
-                if (service.servicesID) {
-                    fetchServiceDetails(service.servicesID);
+                if (response.ok) {
+                    tg.close();
                 } else {
-                    console.error("servicesID отсутствует или undefined:", service);
+                    serverError.textContent = 'Ошибка при отправке данных. Попробуйте ещё раз.';
+                    serverError.style.display = 'block';
                 }
-            };
+            })
+            .catch(error => {
+                const serverError = document.getElementById('serverError');
+                // Скрываем анимацию загрузки после получения ответа
+                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('loadingText').style.display = 'none';
 
-            content.appendChild(serviceDiv);
-        });
+                // Восстанавливаем кнопку
+                document.getElementById('submitButton').disabled = false;
 
-        const backButton = document.createElement('button');
-        backButton.classList.add('back-button');
-        backButton.innerText = 'Назад к группам';
-        backButton.onclick = () => showGroupsFromServices();
-        content.appendChild(backButton);
-    }
-
-    async function fetchServiceDetails(serviceId) {
-        if (!serviceId || typeof serviceId !== 'number') {
-            console.error("Передан некорректный serviceId:", serviceId);
-            return;
-        }
-
-        if (serviceDetailsCache.has(serviceId)) {
-            showServiceDetails(serviceDetailsCache.get(serviceId));
-            return;
-        }
-
-        const content = document.getElementById('content');
-        content.innerHTML = `
-            <div class="loading">
-                <div class="spinner"></div>
-                <p>Пожалуйста, подождите, загрузка...</p>
-            </div>`;
-
-        try {
-            const response = await fetch(`${apiBaseUrl}service_details/${serviceId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                serverError.textContent = 'Ошибка: ' + error.message;
+                serverError.style.display = 'block';
             });
-
-            if (!response.ok) {
-                throw new Error(`Ошибка сервера: ${response.status}`);
-            }
-
-            const service = await response.json();
-            if (service.error) {
-                content.innerHTML = `<h2>Ошибка: ${service.error}</h2>`;
-            } else {
-                serviceDetailsCache.set(serviceId, service);
-                showServiceDetails(service);
-            }
-        } catch (error) {
-            content.innerHTML = `<h2>Ошибка при загрузке данных услуги</h2>`;
-            console.error("Ошибка при получении подробностей услуги:", error);
-        }
     }
-
-    function showServiceDetails(service) {
-        const content = document.getElementById('content');
-        content.innerHTML = `
-            <h2>Информация об услуге</h2>
-            <div class="info">
-                <h3>${service.name}</h3>
-                <p>Имя пользователя: ${service.usersName}</p>
-                <p>Контактная информация: ${service.contactInformation}</p>
-            </div>
-            <button class="back-button" onclick="fetchServices(${currentGroupId})">Назад к услугам</button>
-        `;
-    }
-
-    function showGroupsFromServices() {
-        fetchGroups();
-    }
-
-    fetchGroups();
 </script>
 </body>
 </html>
