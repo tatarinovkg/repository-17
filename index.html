@@ -169,6 +169,20 @@
             word-wrap: break-word; /* Для переноса длинных слов */
             word-break: break-word; /* Для жесткого переноса в случае длинных слов */
         }
+
+        .service-name, .user-name, .contact-info {
+            white-space: pre-wrap;
+        }
+
+        .service-name {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .user-name {
+            font-size: 18px;
+        }
     </style>
 </head>
 <body>
@@ -225,10 +239,14 @@
             const groupDiv = document.createElement('div');
             groupDiv.classList.add('group');
             groupDiv.innerText = group.name;
-            groupDiv.onclick = () => fetchServices(group.groupID);
+            groupDiv.onclick = () => {
+                currentGroupId = group.groupID; // Обновляем currentGroupId при выборе группы
+                fetchServices(group.groupID);
+            };
             content.appendChild(groupDiv);
         });
     }
+
 
     async function fetchServices(groupId) {
         if (servicesCache.has(groupId)) {
@@ -265,7 +283,7 @@
         services.forEach(service => {
             const serviceDiv = document.createElement('div');
             serviceDiv.classList.add('service');
-            serviceDiv.innerText = service.name;
+            serviceDiv.innerText = service.name + '\n' + service.usersName;
 
             serviceDiv.onclick = () => {
                 if (service.servicesID) {
@@ -400,9 +418,9 @@
         content.innerHTML = `
         <h2>Информация об услуге</h2>
         <div class="info">
-            <h3>${service.name}</h3>
-            <p>Имя пользователя: ${service.usersName}</p>
-            <p>Контактная информация: ${service.contactInformation}</p>
+            <h3 class="service-name">${service.name}</h3>
+            <p class="user-name">Имя пользователя: ${service.usersName}</p>
+            <p class="contact-info">Контактная информация: ${formatPhoneNumbers(service.contactInformation.replace(/\n/g, '<br>'))}</p>
         </div>
     `;
 
@@ -410,7 +428,7 @@
             const backButton = document.createElement('button');
             backButton.classList.add('back-button');
             backButton.innerText = 'Назад к услугам';
-            backButton.onclick = () => fetchServices(currentGroupId);
+            backButton.onclick = () => fetchServices(currentGroupId); // Используем currentGroupId при возврате к услугам
             content.appendChild(backButton);
         }
     }
@@ -442,6 +460,17 @@
         }
     } else {
         fetchGroups();
+    }
+
+    function formatPhoneNumbers(text) {
+        // Регулярное выражение для поиска телефонных номеров
+        const phoneRegex = /(?:\+?\d{1,4}[-.\s]?)?(?:\(?\d{1,4}\)?[-.\s]?)?(?:\d{1,4}[-.\s]?){1,4}/g;
+
+        return text.replace(phoneRegex, (match) => {
+            // Удалим все нечисловые символы для создания правильной ссылки
+            const phoneNumber = match.replace(/[^\d+]/g, '').trim();
+            return `<a href="tel:${phoneNumber}">${match.trim()}</a>`;
+        });
     }
 </script>
 </body>
