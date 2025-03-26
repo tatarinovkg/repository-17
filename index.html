@@ -4,36 +4,497 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>All services</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            text-align: center;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f7f7f8;
+            color: #333;
+            min-height: 100vh;
+            overflow-y: auto;
             display: flex;
             justify-content: center;
             align-items: center;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #content {
+            width: 100%;
+            max-width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        h1, h2 {
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .group, .service, .back-button {
+            background: #ffffff;
+            padding: 15px;
+            width: 100%;
+            max-width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+            font-size: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            word-wrap: break-word;
+        }
+
+        .group:hover, .service:hover, .back-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgb(200, 200, 200);
+            background-color: #f3f3f3;
+        }
+
+        .loading {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             height: 100vh;
-            margin: 0;
-        }
-        .content {
-            max-width: 600px;
-            padding: 0 20px; /* Отступы по бокам */
-        }
-        h2 {
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-        p {
+            color: #555;
             font-size: 18px;
-            line-height: 1.5;
+            background-color: rgba(255, 255, 255, 0.7);
+        }
+
+        .spinner {
+            margin-bottom: 15px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info {
+            background: white;
+            padding: 15px;
+            width: 100%;
+            max-width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .info h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .info p {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .back-button {
+            background-color: #298ee6;
+            color: white;
+            width: 100%;
+            max-width: 100%;
+            padding: 15px; /* Добавляем padding */
+            box-sizing: border-box; /* Учитываем padding в размерах */
+            border-radius: 12px; /* Совпадает с блоками */
+            border: none;
+            cursor: pointer;
+            text-align: center;
+            font-size: 16px;
+            display: flex; /* Для выравнивания */
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+        }
+
+        .back-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(200, 200, 200);
+            background-color: #267bc3;
+        }
+        .feedback {
+            background-color: #ffffff;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-sizing: border-box;  /* Чтобы padding учитывался в размерах */
+        }
+
+        .feedback-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 16px;
+            margin-bottom: 8px;
+            flex-wrap: wrap; /* Дает возможность элементам переноситься */
+        }
+
+        .rating {
+            font-weight: bold;
+            color: #298ee6;
+            margin-left: 10px; /* Отступ от имени */
+        }
+
+        .feedback-text {
+            font-size: 14px;
+            color: #555;
+            margin-top: 5px;
+            word-wrap: break-word; /* Для переноса длинных слов */
+            word-break: break-word; /* Для жесткого переноса в случае длинных слов */
+        }
+
+        .service-name, .user-name, .contact-info {
+            white-space: pre-wrap;
+        }
+
+        .service-name {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .user-name {
+            font-size: 18px;
         }
     </style>
 </head>
 <body>
-<div class="content">
-    <h2>Скоро вы сможете посмотреть все услуги в боте, а пока воспользуйтесь интерфейсом бота</h2>
-    <p>В настоящий момент на сайте проводятся технические работы.<br>
-        Пожалуйста, зайдите через некоторое время.<br>
-        Приносим извинения за неудобства.</p>
+<div id="content">
+    <div class="loading">
+        <div class="spinner"></div>
+        <p>Пожалуйста, подождите, загрузка...</p>
+    </div>
 </div>
+<script>
+    const tg = window.Telegram.WebApp;
+    const apiBaseUrl = 'https://cloudpub.tatarinovkg.ru/api/';
+    tg.expand();
+    tg.MainButton.text = "Закрыть приложение";
+    tg.MainButton.onClick(() => tg.close());
+    tg.MainButton.show();
+
+    let currentGroupId = null;
+    let groupsCache = null;
+    let servicesCache = new Map();
+    let serviceDetailsCache = new Map();
+
+    async function fetchGroups() {
+        if (groupsCache) {
+            showGroups(groupsCache);
+            return;
+        }
+
+        const content = document.getElementById('content');
+        content.innerHTML = `
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Пожалуйста, подождите, загрузка...</p>
+            </div>`;
+
+        try {
+            const response = await fetch(`${apiBaseUrl}groups`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const groups = await response.json();
+            groupsCache = groups; // Сохраняем группы в кэше
+            showGroups(groups);
+        } catch (error) {
+            showError("Ошибка при загрузке групп");
+            console.error("Ошибка при получении групп:", error);
+        }
+    }
+
+    function showGroups(groups) {
+        const content = document.getElementById('content');
+        content.innerHTML = '<h2>Все группы с услугами</h2>';
+        groups.forEach(group => {
+            const groupDiv = document.createElement('div');
+            groupDiv.classList.add('group');
+            groupDiv.innerText = group.name;
+            groupDiv.onclick = () => {
+                currentGroupId = group.groupID; // Обновляем currentGroupId при выборе группы
+                fetchServices(group.groupID);
+            };
+            content.appendChild(groupDiv);
+        });
+    }
+
+
+    async function fetchServices(groupId) {
+        if (servicesCache.has(groupId)) {
+            showServices(servicesCache.get(groupId));
+            return;
+        }
+
+        currentGroupId = groupId;
+
+        const content = document.getElementById('content');
+        content.innerHTML = `
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Пожалуйста, подождите, загрузка...</p>
+            </div>`;
+
+        try {
+            const response = await fetch(`${apiBaseUrl}services/${groupId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const services = await response.json();
+            servicesCache.set(groupId, services); // Сохраняем услуги в кэше
+            showServices(services);
+        } catch (error) {
+            showError("Ошибка при загрузке услуг");
+            console.error("Ошибка при получении услуг:", error);
+        }
+    }
+
+    function showServices(services) {
+        const content = document.getElementById('content');
+        content.innerHTML = '<h2>Выберите услугу</h2>';
+        services.forEach(service => {
+            const serviceDiv = document.createElement('div');
+            serviceDiv.classList.add('service');
+            // Выводим краткое описание и контактное лицо
+            serviceDiv.innerText = service.shortDescription + '\n' + service.contactPerson;
+            serviceDiv.onclick = () => {
+                if (service.servicesID) {
+                    fetchServiceDetails(service.servicesID, true); // true – показать кнопку "Назад к услугам"
+                } else {
+                    console.error("servicesID отсутствует или undefined:", service);
+                }
+            };
+            content.appendChild(serviceDiv);
+        });
+
+        // Добавляем блок с ID группы внизу списка услуг
+        const groupIdDiv = document.createElement('div');
+        groupIdDiv.style.fontSize = '14px';
+        groupIdDiv.style.color = '#888';
+        groupIdDiv.style.marginTop = '10px';
+        groupIdDiv.innerText = 'ID группы: ' + currentGroupId;
+        content.appendChild(groupIdDiv);
+
+        const backButton = document.createElement('button');
+        backButton.classList.add('back-button');
+        backButton.innerText = 'Назад к группам';
+        backButton.onclick = fetchGroups;
+        content.appendChild(backButton);
+    }
+
+
+
+    async function fetchServiceDetails(serviceId, showBackButton = false) {
+        if (serviceDetailsCache.has(serviceId)) {
+            showServiceDetails(serviceDetailsCache.get(serviceId), showBackButton);
+            fetchFeedbacks(serviceId); // Загрузим отзывы для услуги
+            return;
+        }
+
+        const content = document.getElementById('content');
+        content.innerHTML = `
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Пожалуйста, подождите, загрузка...</p>
+        </div>`;
+
+        try {
+            const response = await fetch(`${apiBaseUrl}service_details/${serviceId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
+            const service = await response.json();
+            if (service.error) throw new Error(service.error);
+            serviceDetailsCache.set(serviceId, service); // Сохраняем детали услуги в кэше
+            showServiceDetails(service, showBackButton);
+            fetchFeedbacks(serviceId); // Загрузим отзывы для услуги
+        } catch (error) {
+            showError("Ошибка при загрузке услуги. Проверьте URL.");
+            console.error("Ошибка при получении услуги:", error);
+        }
+    }
+
+    async function fetchFeedbacks(serviceId) {
+        const content = document.getElementById('content');
+
+        // Создаем контейнер для отзывов
+        let feedbacksContainer = document.getElementById('feedbacks-container');
+
+        if (!feedbacksContainer) {
+            feedbacksContainer = document.createElement('div');
+            feedbacksContainer.id = 'feedbacks-container';
+            content.appendChild(feedbacksContainer);
+        } else {
+            // Очистим контейнер, если он уже есть
+            feedbacksContainer.innerHTML = '';
+        }
+
+        // Показываем индикатор загрузки в блоке с отзывами
+        feedbacksContainer.innerHTML = `
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Загружаются отзывы...</p>
+        </div>
+    `;
+
+        try {
+            const response = await fetch(`${apiBaseUrl}getFeedbacks/${serviceId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.ok) {
+                const feedbacks = await response.json();
+                feedbacksContainer.innerHTML = ''; // Очищаем контейнер с индикатором
+
+                if (feedbacks.message) {
+                    // Если нет отзывов, показываем сообщение
+                    feedbacksContainer.innerHTML = `<h3>${feedbacks.message}</h3>`;
+                } else {
+                    // Если отзывы есть, показываем средний рейтинг и сами отзывы
+                    const averageRating = calculateAverageRating(feedbacks);
+                    feedbacksContainer.innerHTML = `
+                    <h2>Средняя оценка: ${averageRating}⭐️</h2>
+                `;
+
+                    // Отображаем отзывы
+                    showFeedbacks(feedbacksContainer, feedbacks);
+                }
+            } else {
+                feedbacksContainer.innerHTML = `<h2>Ошибка при получении отзывов. Попробуйте позже.</h2>`;
+            }
+        } catch (error) {
+            console.error('Ошибка при получении отзывов:', error);
+            feedbacksContainer.innerHTML = `<h2>Ошибка при загрузке отзывов. Попробуйте позже.</h2>`;
+        }
+    }
+
+    // Функция для отображения отзывов
+    function showFeedbacks(feedbacksContainer, feedbacks) {
+        feedbacks.forEach(feedback => {
+            const feedbackDiv = document.createElement('div');
+            feedbackDiv.classList.add('feedback');
+
+            // Объединяем имя, рейтинг и текст отзыва
+            feedbackDiv.innerHTML = `
+            <div class="feedback-header">
+                <strong>${feedback.usersName}</strong>
+                <span class="rating">Оценка: ${feedback.feedbackRating}</span>
+            </div>
+            <p class="feedback-text">${feedback.feedbackText}</p>
+        `;
+            feedbacksContainer.appendChild(feedbackDiv);
+        });
+    }
+
+    // Функция для расчета среднего рейтинга
+    function calculateAverageRating(feedbacks) {
+        const totalRating = feedbacks.reduce((sum, feedback) => sum + feedback.feedbackRating, 0);
+        return (totalRating / feedbacks.length).toFixed(1);
+    }
+
+    function showServiceDetails(service, showBackButton) {
+        const content = document.getElementById('content');
+        content.innerHTML = `
+        <h2>Информация об услуге</h2>
+        <div class="info">
+            <h3 class="service-name">🛠 ${service.shortDescription || 'Описание отсутствует'}</h3>
+            ${service.service ? `
+                <div>
+                    <p><strong>🎲 Описание услуги:</strong></p>
+                    <div style="white-space: pre-wrap; text-align: left;">${service.service}</div>
+                </div>` : ""}
+            <div>
+                <p><strong>👤 Контактное лицо:</strong></p>
+                <div style="white-space: pre-wrap; text-align: left;">${service.contactPerson || 'Не указано'}</div>
+            </div>
+            <div>
+                <p><strong>📞 Контакты:</strong></p>
+                <div style="white-space: pre-wrap; text-align: left;">${service.contacts ? formatPhoneNumbers(service.contacts.replace(/\n/g, '<br>')) : 'Не указаны'}</div>
+            </div>
+            <!-- Выводим ID услуги аккуратно внизу блока -->
+            <div style="font-size: 14px; color: #888; margin-top: 8px;">ID услуги: ${service.servicesID}</div>
+        </div>
+    `;
+
+        if (showBackButton) {
+            const backButton = document.createElement('button');
+            backButton.classList.add('back-button');
+            backButton.innerText = 'Назад к услугам';
+            backButton.onclick = () => fetchServices(currentGroupId);
+            content.appendChild(backButton);
+        }
+    }
+
+
+
+    function showError(message) {
+        const content = document.getElementById('content');
+        content.innerHTML = `
+        <div class="error" style="text-align: center; margin-top: 20px;">
+            <h2>${message}</h2>
+        </div>
+    `;
+    }
+
+    function showGroupsFromServices() {
+        fetchGroups();
+    }
+
+    // Обработка параметра serviceId из URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const serviceId = urlParams.get('serviceId');
+    // Если параметр есть, загружаем услугу, иначе — группы
+    if (serviceId) {
+        const parsedId = parseInt(serviceId, 10);
+        if (!isNaN(parsedId)) {
+            fetchServiceDetails(parsedId, false); // false — без кнопки "Назад"
+        } else {
+            showError("Некорректный serviceId в URL.");
+        }
+    } else {
+        fetchGroups();
+    }
+
+    function formatPhoneNumbers(text) {
+        // Регулярное выражение для поиска телефонных номеров
+        const phoneRegex = /(?:\+?\d{1,4}[-.\s]?)?(?:\(?\d{1,4}\)?[-.\s]?)?(?:\d{1,4}[-.\s]?){1,4}/g;
+
+        return text.replace(phoneRegex, (match) => {
+            // Удалим все нечисловые символы для создания правильной ссылки
+            const phoneNumber = match.replace(/[^\d+]/g, '').trim();
+            return `<a href="tel:${phoneNumber}">${match.trim()}</a>`;
+        });
+    }
+</script>
 </body>
 </html>
