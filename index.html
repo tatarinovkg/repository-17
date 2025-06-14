@@ -183,6 +183,23 @@
         .user-name {
             font-size: 18px;
         }
+
+        #searchInput {
+            transition: border 0.3s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s cubic-bezier(0.4,0,0.2,1);
+            border: 2px solid #e0e0e0;
+            outline: none;
+            border-radius: 12px;
+            background: #fff;
+            font-size: 16px;
+            padding: 12px;
+            box-shadow: 0 2px 8px rgba(41,142,230,0.06);
+        }
+
+        #searchInput:focus {
+            border: 2px solid #298ee6;
+            box-shadow: 0 0 0 4px rgba(41,142,230,0.12);
+            background: #fafdff;
+        }
     </style>
 </head>
 <body>
@@ -191,6 +208,7 @@
         <div class="spinner"></div>
         <p>Пожалуйста, подождите, загрузка...</p>
     </div>
+    <button id="searchButton" class="back-button">🔍 Поиск услуг</button>
 </div>
 <script>
     const tg = window.Telegram.WebApp;
@@ -204,6 +222,8 @@
     let groupsCache = null;
     let servicesCache = new Map();
     let serviceDetailsCache = new Map();
+    let searchTimeout;
+    let lastSearchQuery = "";
 
     async function fetchGroups() {
         if (groupsCache) {
@@ -234,17 +254,26 @@
 
     function showGroups(groups) {
         const content = document.getElementById('content');
-        content.innerHTML = '<h2>Все группы с услугами</h2>';
+        // Оставляем только шапку с кнопкой
+        content.innerHTML = `
+      <button id="searchButton" class="back-button">
+        🔍 Поиск услуг
+      </button>
+      <h2>Все группы с услугами</h2>
+    `;
+        // Теперь – сами группы
         groups.forEach(group => {
-            const groupDiv = document.createElement('div');
-            groupDiv.classList.add('group');
-            groupDiv.innerText = group.name;
-            groupDiv.onclick = () => {
-                currentGroupId = group.groupID; // Обновляем currentGroupId при выборе группы
+            const div = document.createElement('div');
+            div.className = 'group';
+            div.innerText = group.name;
+            div.onclick = () => {
+                currentGroupId = group.groupID;
                 fetchServices(group.groupID);
             };
-            content.appendChild(groupDiv);
+            content.appendChild(div);
         });
+        // Навешиваем обработчик на кнопку (ещё раз, т.к. пересоздали её)
+        document.getElementById('searchButton').onclick = showSearchField;
     }
 
 
@@ -287,7 +316,7 @@
             serviceDiv.innerText = service.shortDescription + '\n' + service.contactPerson;
             serviceDiv.onclick = () => {
                 if (service.servicesID) {
-                    fetchServiceDetails(service.servicesID, true); // true – показать кнопку "Назад к услугам"
+                    fetchServiceDetails(service.servicesID, true, false); // true–назад к услугам, false–не из поиска
                 } else {
                     console.error("servicesID отсутствует или undefined:", service);
                 }
@@ -312,19 +341,19 @@
 
 
 
-    async function fetchServiceDetails(serviceId, showBackButton = false) {
+    async function fetchServiceDetails(serviceId, showBackButton = false, fromSearch = false) {
         if (serviceDetailsCache.has(serviceId)) {
-            showServiceDetails(serviceDetailsCache.get(serviceId), showBackButton);
-            fetchFeedbacks(serviceId); // Загрузим отзывы для услуги
+            showServiceDetails(serviceDetailsCache.get(serviceId), showBackButton, fromSearch);
+            fetchFeedbacks(serviceId);
             return;
         }
 
         const content = document.getElementById('content');
         content.innerHTML = `
-        <div class="loading">
-            <div class="spinner"></div>
-            <p>Пожалуйста, подождите, загрузка...</p>
-        </div>`;
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Пожалуйста, подождите, загрузка...</p>
+            </div>`;
 
         try {
             const response = await fetch(`${apiBaseUrl}service_details/${serviceId}`, {
@@ -334,9 +363,9 @@
             if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
             const service = await response.json();
             if (service.error) throw new Error(service.error);
-            serviceDetailsCache.set(serviceId, service); // Сохраняем детали услуги в кэше
-            showServiceDetails(service, showBackButton);
-            fetchFeedbacks(serviceId); // Загрузим отзывы для услуги
+            serviceDetailsCache.set(serviceId, service); // Кэшируем
+            showServiceDetails(service, showBackButton, fromSearch);
+            fetchFeedbacks(serviceId);
         } catch (error) {
             showError("Ошибка при загрузке услуги. Проверьте URL.");
             console.error("Ошибка при получении услуги:", error);
@@ -422,7 +451,7 @@
         return (totalRating / feedbacks.length).toFixed(1);
     }
 
-    function showServiceDetails(service, showBackButton) {
+    function showServiceDetails(service, showBackButton, fromSearch) {
         const content = document.getElementById('content');
         content.innerHTML = `
         <h2>Информация об услуге</h2>
@@ -441,12 +470,18 @@
                 <p><strong>📞 Контакты:</strong></p>
                 <div style="white-space: pre-wrap; text-align: left;">${service.contacts ? formatPhoneNumbers(service.contacts.replace(/\n/g, '<br>')) : 'Не указаны'}</div>
             </div>
-            <!-- Выводим ID услуги аккуратно внизу блока -->
             <div style="font-size: 14px; color: #888; margin-top: 8px;">ID услуги: ${service.servicesID}</div>
         </div>
     `;
 
-        if (showBackButton) {
+        // Добавлять кнопку только если явно указано, что она нужна
+        if (fromSearch) {
+            const backButton = document.createElement('button');
+            backButton.classList.add('back-button');
+            backButton.innerText = 'Назад к поиску';
+            backButton.onclick = showSearchField;
+            content.appendChild(backButton);
+        } else if (showBackButton) {
             const backButton = document.createElement('button');
             backButton.classList.add('back-button');
             backButton.innerText = 'Назад к услугам';
@@ -455,6 +490,55 @@
         }
     }
 
+    function showSearchField() {
+        const content = document.getElementById('content');
+        content.innerHTML = `
+        <h2>Поиск услуг</h2>
+        <input id="searchInput" placeholder="Введите запрос..." value="${lastSearchQuery}" style="padding: 12px; width: 100%; max-width: 100%; border-radius: 12px; border: 1px solid #ccc; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.3s ease;" autofocus />
+        <div id="suggestions" style="margin-top: 20px; width: 100%; display: flex; flex-direction: column; gap: 12px;"></div>
+        <button class="back-button" onclick="fetchGroups()">Назад</button>
+    `;
+
+        const input = document.getElementById('searchInput');
+        if (lastSearchQuery) fetchSuggestions(lastSearchQuery);
+
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                input.blur();
+            }
+        });
+
+        input.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            const q = input.value.trim();
+            lastSearchQuery = q; // ← сохраняем запрос
+            if (!q || /^\d+$/.test(q)) {
+                document.getElementById('suggestions').innerHTML = '';
+                return;
+            }
+            searchTimeout = setTimeout(() => fetchSuggestions(q), 250);
+        });
+    }
+
+
+    async function fetchSuggestions(query) {
+        try {
+            const res = await fetch(`${apiBaseUrl}search_services?query=${encodeURIComponent(query)}`);
+            const results = await res.json();
+            const suggestionsDiv = document.getElementById('suggestions');
+
+            suggestionsDiv.innerHTML = results.length
+                ? results.map(item => `
+            <div class="service" onclick="fetchServiceDetails(${item.servicesID}, false, true)">
+              ${item.text}
+            </div>
+          `).join('')
+                : `<div class="service">Ничего не найдено</div>`;
+        } catch (e) {
+            console.error('Search error:', e);
+        }
+    }
 
 
     function showError(message) {
@@ -477,7 +561,7 @@
     if (serviceId) {
         const parsedId = parseInt(serviceId, 10);
         if (!isNaN(parsedId)) {
-            fetchServiceDetails(parsedId, false); // false — без кнопки "Назад"
+            fetchServiceDetails(parsedId, false, false); // оба false — кнопка не нужна
         } else {
             showError("Некорректный serviceId в URL.");
         }
