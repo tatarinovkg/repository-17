@@ -200,6 +200,21 @@
             box-shadow: 0 0 0 4px rgba(41,142,230,0.12);
             background: #fafdff;
         }
+
+        /* контейнер подсказок: центрируем всё по горизонтали */
+        #suggestions {
+            display: flex;
+            flex-direction: column;
+            align-items: center;    /* ключевой момент */
+            gap: 12px;
+            margin-top: 20px;
+            width: 100%;
+        }
+        /* сами карточки подсказок */
+        .service {
+            width: 100%;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
