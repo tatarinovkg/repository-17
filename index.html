@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="format-detection" content="telephone=no" />
-    <title>Услуги — Telegram Mini App</title>
+    <title>All services</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js" defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -26,6 +26,34 @@
             --sd-from: #f8fafc; --sd-to: #e0e7ff; --sd-fg: #475569;
             --dd-bg: #ffffff;
         }
+        #appTitleWrap {
+            position: relative;
+            overflow: hidden;
+        }
+        #appTitle {
+            white-space: nowrap;
+            margin: 0;
+        }
+        #appTitleText {
+            display: inline-block;
+            will-change: transform;
+            transform: translateX(0);
+        }
+        #appTitleWrap.scrolling #appTitleText {
+            animation: title-marquee var(--marquee-duration, 10s) linear infinite;
+        }
+
+        @keyframes title-marquee {
+            0%   { transform: translateX(0); }
+            10%  { transform: translateX(0); }                /* пауза в начале */
+            90%  { transform: translateX(var(--marquee-shift, 0)); }
+            100% { transform: translateX(var(--marquee-shift, 0)); } /* пауза в конце */
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #appTitleWrap.scrolling #appTitleText { animation: none; }
+        }
+
         .dark :root { --app-bg:#0b1220; --app-fg:#e5e7eb; --sd-from:#0b1220; --sd-to:#1e263b; --sd-fg:#cbd5e1; --dd-bg:#0f172a; }
         html, body { height: 100%;}
         html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
@@ -45,7 +73,11 @@
             <button id="navBack"
                     class="hidden inline-flex px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
                     aria-label="Назад">Назад</button>
-            <h1 id="appTitle" class="text-xl font-bold text-brand tracking-tight">Услуги</h1>
+            <div id="appTitleWrap" class="flex-1 min-w-0">
+                <h1 id="appTitle" class="text-xl font-bold text-brand tracking-tight">
+                    <span id="appTitleText">Услуги</span>
+                </h1>
+            </div>
             <div class="ml-auto flex items-center gap-2">
                 <button id="openSearch" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" title="Поиск">🔎</button>
                 <button id="themeToggle" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Тема"><span id="themeIcon">🌙</span></button>
@@ -103,6 +135,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         fastThemeBoot(); initTelegramApp();
         bindHeader();
+        initTitleMarquee();
         window.addEventListener('hashchange', routeFromHash);
         routeFromEntry();
     });
@@ -168,7 +201,60 @@
 
     // ============ Screens ============
     const screen = () => document.getElementById('screen');
-    function setTitle(text){ document.getElementById('appTitle').textContent = text || 'Услуги'; }
+    function setTitle(text){
+        const wrap = document.getElementById('appTitleWrap');
+        const h1   = document.getElementById('appTitle');
+        const span = document.getElementById('appTitleText');
+        if (!wrap || !h1 || !span) return;
+
+        const finalText = text || 'Услуги';
+        span.textContent = finalText;
+        h1.setAttribute('title', finalText);
+
+        // НИКАКИХ изменений классов/размера шрифта:
+        // оставляем то, что задано в HTML (например, "text-xl font-bold ...")
+
+        // пересчитать/запустить автопрокрутку, если не влезает
+        refreshTitleMarquee();
+    }
+
+    const TITLE_SPEED = 40;       // пикселей в секунду
+    const TITLE_PAUSE = 1;        // секунда паузы на краях
+
+    function refreshTitleMarquee(){
+        const wrap = document.getElementById('appTitleWrap');
+        const span = document.getElementById('appTitleText');
+        const h1   = document.getElementById('appTitle');
+        if (!wrap || !span || !h1) return;
+
+        wrap.classList.remove('scrolling');
+
+        if (span.scrollWidth <= wrap.clientWidth + 4) return; // помещается, не крутим
+
+        const shift = wrap.clientWidth - span.scrollWidth - 8; // расстояние с зазором
+        const distance = Math.abs(shift);
+
+        const travelTime = distance / TITLE_SPEED;       // чистое время движения
+        const totalTime = travelTime + TITLE_PAUSE * 2;  // + пауза на старте и конце
+
+        h1.style.setProperty('--marquee-shift', shift + 'px');
+        h1.style.setProperty('--marquee-duration', totalTime + 's');
+
+        void wrap.offsetWidth; // перезапуск анимации
+        wrap.classList.add('scrolling');
+    }
+
+    // Подстраивать анимацию при ресайзе/смене ориентации/шрифтов
+    function initTitleMarquee(){
+        const ro = new ResizeObserver(() => refreshTitleMarquee());
+        const wrap = document.getElementById('appTitleWrap');
+        const span = document.getElementById('appTitleText');
+        if (wrap) ro.observe(wrap);
+        if (span) ro.observe(span);
+        window.addEventListener('orientationchange', refreshTitleMarquee);
+        window.addEventListener('resize', refreshTitleMarquee);
+    }
+
     function setBackVisible(v){
         const btn = document.getElementById('navBack');
         if (!btn) return;
@@ -217,8 +303,9 @@
 
     // Group screen
     async function showGroupScreen(groupId){
-        setBackVisible(true);
-        setTitle('Группа');
+        setBackVisible(false);
+        const groupName = await fetchGroupName(groupId);
+        setTitle(groupName);
 
         // Сбросить «Назад» к историческому поведению (важно после экрана поиска)
         const backBtn = document.getElementById('navBack');
@@ -260,7 +347,7 @@
 
     // Service screen
     async function showServiceScreen(serviceId){
-        setBackVisible(true);
+        setBackVisible(false);
         setTitle('Услуга');
 
         // Сбросить «Назад» к историческому поведению (к поиску, если пришли из него)
@@ -336,7 +423,7 @@
     }
 
     function showSearchScreen(q){
-        setBackVisible(true);
+        setBackVisible(false);
         setTitle('Поиск');
 
         const view=document.createElement('div');
@@ -472,12 +559,27 @@
         listEl.appendChild(frag);
     }
 
-
     function debounce(fn, ms=200){
         let t; return function(...args){
             clearTimeout(t);
             t = setTimeout(()=>fn.apply(this,args), ms);
         };
+    }
+
+
+    async function fetchGroupName(groupId) {
+        try {
+            const r = await fetch(`${apiBaseUrl}group/${groupId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!r.ok) throw new Error('Bad response');
+            const data = await r.json();
+            return data.name || 'Группа';
+        } catch (e) {
+            console.error(e);
+            return 'Группа';
+        }
     }
 
 
