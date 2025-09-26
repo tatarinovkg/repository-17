@@ -345,14 +345,15 @@
         screen().innerHTML=''; screen().appendChild(grid);
     }
 
+    // Service screen
     async function showServiceScreen(serviceId){
         setBackVisible(false);
         setTitle('Услуга');
 
-        // Telegram BackButton: назад по истории
+        // Сбросить «Назад» к историческому поведению (к поиску, если пришли из него)
+        const backBtn = document.getElementById('navBack');
+        if (backBtn) backBtn.onclick = () => history.back();
         try {
-            // снимаем возможный обработчик от поиска
-            tg?.BackButton?.offClick?.(() => {});
             tg?.BackButton?.show();
             tg?.BackButton?.onClick(() => history.back());
         } catch {}
@@ -372,9 +373,8 @@
             }
         }
         renderServiceDetails(service);
-        fetchFeedbacks(serviceId);
+        fetchFeedbacks(serviceId); // отдельной порцией
     }
-
 
     function renderServiceDetails(service){
         const parts=[]; const title=getServiceTitle(service);
@@ -423,23 +423,23 @@
     }
 
     function showSearchScreen(q){
-        // локальную кнопку не показываем
         setBackVisible(false);
         setTitle('Поиск');
 
         const view=document.createElement('div');
         view.className='space-y-3';
         view.innerHTML = `
-    <div class="sticky top-14 pt-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur z-10">
-      <div class="relative">
-        <input id="searchInput" type="text" inputmode="search" autocomplete="off" spellcheck="false" placeholder="Найти услугу..." class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-800 pl-11 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-brand text-base shadow transition" />
-        <span class="absolute left-3 top-3.5 text-slate-400">🔎</span>
-        <button id="clearSearchBtn" class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xl leading-none px-2" aria-label="Очистить">&times;</button>
+      <div class="sticky top-14 pt-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur z-10">
+        <div class="relative">
+          <input id="searchInput" type="text" inputmode="search" autocomplete="off" spellcheck="false" placeholder="Найти услугу..." class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-800 pl-11 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-brand text-base shadow transition" />
+          <span class="absolute left-3 top-3.5 text-slate-400">🔎</span>
+          <button id="clearSearchBtn" class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xl leading-none px-2" aria-label="Очистить">&times;</button>
+        </div>
       </div>
-    </div>
-    <div id="searchState" class="text-center text-slate-500 py-6">Введите запрос для поиска</div>
-    <div id="results" class="space-y-2"></div>`;
-        screen().innerHTML=''; screen().appendChild(view);
+      <div id="searchState" class="text-center text-slate-500 py-6">Введите запрос для поиска</div>
+      <div id="results" class="space-y-2"></div>`;
+        screen().innerHTML='';
+        screen().appendChild(view);
 
         const input=view.querySelector('#searchInput');
         const clear=view.querySelector('#clearSearchBtn');
@@ -448,9 +448,12 @@
 
         input.value = q || '';
 
-        // Enter -> скрыть клавиатуру
+        // --- главное: по Enter скрываем клавиатуру
         input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                input.blur();
+            }
         });
 
         input.oninput = debounce(() => {
@@ -463,25 +466,26 @@
         }, 220);
 
         clear.onclick = ()=> {
-            input.value=''; updateHash({ q:'' }, true);
-            results.innerHTML=''; state.textContent='Введите запрос для поиска';
+            input.value='';
+            updateHash({ q:'' }, true);
+            results.innerHTML='';
+            state.textContent='Введите запрос для поиска';
             input.focus();
         };
 
         if(q) doSearch(q, state, results); else input.focus();
 
-        // === ВАЖНО: показать Telegram BackButton на поиске ===
+        // === показываем Telegram Back вместо Close ===
         function exitSearchToRoot(){
             history.replaceState(null, '', location.pathname + location.search);
             showGroupsScreen();
         }
         try {
-            tg?.BackButton?.offClick?.(exitSearchToRoot); // на всякий случай снимаем
-            tg?.BackButton?.show();
+            tg?.MainButton?.hide();       // убираем «Закрыть»
+            tg?.BackButton?.show();       // показываем «Назад»
             tg?.BackButton?.onClick(exitSearchToRoot);
-        } catch {}
+        } catch(e){ console.warn(e); }
     }
-
 
     function openSearchScreen(){
         const p = new URLSearchParams(location.hash.slice(1));
