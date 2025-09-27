@@ -53,6 +53,12 @@
             #appTitleWrap.scrolling #appTitleText { animation: none; }
         }
 
+        header.sticky {
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            transform: translateZ(0);
+            will-change: transform;
+        }
         .dark :root { --app-bg:#0b1220; --app-fg:#e5e7eb; --sd-from:#0b1220; --sd-to:#1e263b; --sd-fg:#cbd5e1; --dd-bg:#0f172a; }
         html, body { height: 100%;}
         html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
@@ -91,20 +97,108 @@
 </div>
 
 <script>
-    // ============ Telegram init ============
+
     const tg = window.Telegram ? window.Telegram.WebApp : null;
     const apiBaseUrl = 'https://bot.ovimex72.ru/api/';
 
-    function initTelegramApp(){
+    function initTelegramApp() {
+        const tg = isInTelegram() ? window.Telegram.WebApp : null;
         if (!tg) return;
-        try{
-            tg.ready(); tg.expand();
+        try {
+            tg.ready();
+            tg.expand();
             applyTelegramTheme();
             tg.onEvent('themeChanged', applyTelegramTheme);
-            tg.MainButton.setParams({ text: 'Закрыть приложение', is_visible: true });
-            tg.MainButton.onClick(()=> tg.close());
-        }catch(e){ console.warn('TG init error', e); }
+            // стартовое состояние вычислим роутером
+            setNavForRoute();
+        } catch (e) { console.warn('TG init error', e); }
     }
+
+    // ======= NAV CORE =======
+    let currentBackHandler = null;
+
+    function isInTelegram() {
+        return !!(window.Telegram && window.Telegram.WebApp);
+    }
+
+    function isRootViewFromHash() {
+        // root = нет hash ИЛИ view=groups без group/service/search
+        const p = new URLSearchParams(location.hash.replace(/^#/, ''));
+        const view = p.get('view') || 'groups';
+        const group = p.get('group');
+        const service = p.get('service');
+        const q = p.get('q');
+        return (view === 'groups' && !group && !service && !q);
+    }
+
+    // безопасный «шаг назад»: если не получилось — идём на корень
+    function goBackSafe() {
+        const before = location.href;
+        history.back();
+
+        setTimeout(() => {
+            const after = location.href;
+            if (before === after) {
+                // не сработало (или история пуста) — явно уходим на корень
+                history.replaceState(null, '', location.pathname + location.search);
+                showGroupsScreen();
+            }
+        }, 120);
+    }
+
+    // Показывает либо «Закрыть», либо «Назад».
+    // На Telegram используется встроенная кнопка, в браузере — #navBack.
+    function setNavMode(mode /* 'close' | 'back' */) {
+        const tg = isInTelegram() ? window.Telegram.WebApp : null;
+        const domBack = document.getElementById('navBack');
+
+        // Сначала приводим DOM кнопку к нужному состоянию:
+        if (domBack) {
+            if (!isInTelegram() && mode === 'back') {
+                domBack.classList.remove('hidden');
+                domBack.style.display = 'inline-flex';
+                domBack.onclick = () => goBackSafe();
+            } else {
+                domBack.classList.add('hidden');
+                domBack.style.display = 'none';
+                domBack.onclick = null;
+            }
+        }
+
+        if (!tg) return; // вне Telegram дальше ничего не делаем
+
+        try {
+            // Спрятать всё, чтобы не было «моргания»
+            tg.MainButton.hide();
+            tg.BackButton.hide();
+
+            // Единый обработчик BackButton — переназначаем делегат
+            if (currentBackHandler == null) {
+                tg.BackButton.onClick(() => {
+                    try { currentBackHandler && currentBackHandler(); } catch {}
+                });
+            }
+            currentBackHandler = null;
+
+            if (mode === 'back') {
+                currentBackHandler = () => goBackSafe();
+                tg.BackButton.show();
+            } else {
+                tg.MainButton.setParams({ text: 'Закрыть приложение', is_visible: true });
+                tg.MainButton.onClick(() => tg.close());
+                tg.MainButton.show();
+            }
+        } catch (e) {
+            console.warn('setNavMode error', e);
+        }
+    }
+
+    // Вызываем на каждом роутинге: решает, какой режим нужен СЕЙЧАС
+    function setNavForRoute() {
+        const root = isRootViewFromHash();
+        setNavMode(root ? 'close' : 'back');
+    }
+
     function applyTelegramTheme(){
         if (!tg) return;
         // если пользователь вручную выбрал тему — уважаем его выбор
@@ -152,11 +246,11 @@
             updateThemeIcon();
         }catch{}
     }
-    function bindHeader(){
-        document.getElementById('openSearch').onclick = ()=> { updateHash({ view: 'search', q: '' }); };
-        document.getElementById('themeToggle').onclick = ()=> { toggleTheme(); haptic('impact'); };
-        document.getElementById('navBack').onclick = ()=> history.back();
+    function bindHeader() {
+        document.getElementById('openSearch').onclick = () => { updateHash({ view: 'search', q: '' }); };
+        document.getElementById('themeToggle').onclick = () => { toggleTheme(); haptic('impact'); };
     }
+
     function updateThemeIcon(){
         const isDark=document.documentElement.classList.contains('dark');
         document.getElementById('themeIcon').textContent = isDark? '☀️':'🌙';
@@ -180,18 +274,22 @@
         try{ const startParam=tg?.initDataUnsafe?.start_param; const m=startParam?.match(/(\d{2,})/); if(m){ showServiceScreen(Number(m[1])); return; } }catch{}
         routeFromHash();
     }
-    function routeFromHash(){
-        const p=new URLSearchParams(location.hash.replace(/^#/,''));
-        const view=p.get('view')||'groups';
-        const groupId=p.get('group')||null;
-        const serviceId=p.get('service')||null;
-        const q=p.get('q')||'';
+    function routeFromHash() {
+        const p = new URLSearchParams(location.hash.replace(/^#/, ''));
+        const view = p.get('view') || 'groups';
+        const groupId = p.get('group') || null;
+        const serviceId = p.get('service') || null;
+        const q = p.get('q') || '';
 
-        if(view==='search') { showSearchScreen(q); return; }
-        if(serviceId) { showServiceScreen(serviceId); return; }
-        if(groupId) { showGroupScreen(groupId); return; }
+        // ВАЖНО: сначала поставить правильные кнопки, потом рендер
+        setNavForRoute();
+
+        if (view === 'search') { showSearchScreen(q); return; }
+        if (serviceId)         { showServiceScreen(serviceId); return; }
+        if (groupId)           { showGroupScreen(groupId); return; }
         showGroupsScreen();
     }
+
     function updateHash(partial, replace=false){
         const p=new URLSearchParams(location.hash.replace(/^#/,''));
         Object.entries(partial).forEach(([k,v])=>{ if(v===undefined||v===null||v==='') p.delete(k); else p.set(k,v); });
@@ -254,12 +352,33 @@
         window.addEventListener('resize', refreshTitleMarquee);
     }
 
-    // Root: Groups
-    async function showGroupsScreen(){
-        setTitle('Услуги');
-        if(!groupsCache){ screen().innerHTML = pageLoading('Загрузка групп...'); await fetchGroups(); }
-        renderGroups(groupsCache||[]);
+    function setBackVisible(v){
+        const btn = document.getElementById('navBack');
+        if (!btn) return;
+        if (v) {
+            btn.classList.remove('hidden');
+            btn.style.display = 'inline-flex';
+            try { tg?.BackButton.show(); } catch {}
+        } else {
+            btn.classList.add('hidden');
+            btn.style.display = 'none';
+            try { tg?.BackButton.hide(); } catch {}
+        }
     }
+
+
+    // Root: Groups
+    async function showGroupsScreen() {
+        setTitle('Услуги');
+        setNavForRoute(); // будет «Закрыть»
+
+        if (!groupsCache) {
+            screen().innerHTML = pageLoading('Загрузка групп...');
+            await fetchGroups();
+        }
+        renderGroups(groupsCache || []);
+    }
+
     async function fetchGroups(){
         if(groupsCache || groupsLoading) { await groupsLoading; return groupsCache; }
         groupsLoading = (async()=>{
@@ -285,18 +404,10 @@
         screen().innerHTML=''; screen().appendChild(wrapper);
     }
 
-    // Group screen
-    async function showGroupScreen(groupId){
+    async function showGroupScreen(groupId) {
         const groupName = await fetchGroupName(groupId);
         setTitle(groupName);
-
-        // Сбросить «Назад» к историческому поведению (важно после экрана поиска)
-        const backBtn = document.getElementById('navBack');
-        if (backBtn) backBtn.onclick = () => history.back();
-        try {
-            tg?.BackButton?.show();
-            tg?.BackButton?.onClick(() => history.back());
-        } catch {}
+        setNavForRoute(); // будет «Назад»
 
         screen().innerHTML = pageLoading('Загрузка услуг.');
         const services = await fetchServices(groupId);
@@ -328,35 +439,28 @@
         screen().innerHTML=''; screen().appendChild(grid);
     }
 
-    // Service screen
-    async function showServiceScreen(serviceId){
+    async function showServiceScreen(serviceId) {
         setTitle('Услуга');
-
-        // Сбросить «Назад» к историческому поведению (к поиску, если пришли из него)
-        const backBtn = document.getElementById('navBack');
-        if (backBtn) backBtn.onclick = () => history.back();
-        try {
-            tg?.BackButton?.show();
-            tg?.BackButton?.onClick(() => history.back());
-        } catch {}
+        setNavForRoute(); // будет «Назад»
 
         screen().innerHTML = pageLoading('Загрузка услуги.');
         let service = serviceDetailsCache.get(serviceId);
-        if(!service){
-            try{
-                const r=await fetch(`${apiBaseUrl}service_details/${serviceId}`, { method:'POST', headers:{'Content-Type':'application/json'} });
-                if(!r.ok) throw new Error('Ошибка сервера');
-                service=await r.json();
+        if (!service) {
+            try {
+                const r = await fetch(`${apiBaseUrl}service_details/${serviceId}`, { method:'POST', headers:{'Content-Type':'application/json'} });
+                if (!r.ok) throw new Error('Ошибка сервера');
+                service = await r.json();
                 serviceDetailsCache.set(serviceId, service);
-            } catch(e){
+            } catch(e) {
                 screen().innerHTML = pageError('Не удалось загрузить данные услуги.');
                 console.error(e);
                 return;
             }
         }
         renderServiceDetails(service);
-        fetchFeedbacks(serviceId); // отдельной порцией
+        fetchFeedbacks(serviceId);
     }
+
 
     function renderServiceDetails(service){
         const parts=[]; const title=getServiceTitle(service);
@@ -404,37 +508,36 @@
         }catch(e){ container.innerHTML = pageError('Не удалось загрузить отзывы.'); console.error(e); }
     }
 
-    function showSearchScreen(q){
+    function showSearchScreen(q) {
         setTitle('Поиск');
+        setNavForRoute(); // будет «Назад»
 
-        const view=document.createElement('div');
-        view.className='space-y-3';
+        const view = document.createElement('div');
+        view.className = 'space-y-3';
         view.innerHTML = `
-      <div class="sticky top-14 pt-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur z-10">
-        <div class="relative">
-          <input id="searchInput" type="text" inputmode="search" autocomplete="off" spellcheck="false" placeholder="Найти услугу..." class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-800 pl-11 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-brand text-base shadow transition" />
-          <span class="absolute left-3 top-3.5 text-slate-400">🔎</span>
-          <button id="clearSearchBtn" class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xl leading-none px-2" aria-label="Очистить">&times;</button>
-        </div>
-      </div>
-      <div id="searchState" class="text-center text-slate-500 py-6">Введите запрос для поиска</div>
-      <div id="results" class="space-y-2"></div>`;
-        screen().innerHTML='';
+            <div class="sticky top-14 pt-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur z-10">
+              <div class="relative">
+                <input id="searchInput" type="text" inputmode="search" autocomplete="off" spellcheck="false"
+                       placeholder="Найти услугу..."
+                       class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-800 pl-11 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-brand text-base shadow transition" />
+                <span class="absolute left-3 top-3.5 text-slate-400">🔎</span>
+                <button id="clearSearchBtn" class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xl leading-none px-2" aria-label="Очистить">&times;</button>
+              </div>
+            </div>
+            <div id="searchState" class="text-center text-slate-500 py-6">Введите запрос для поиска</div>
+            <div id="results" class="space-y-2"></div>`;
+        screen().innerHTML = '';
         screen().appendChild(view);
 
-        const input=view.querySelector('#searchInput');
-        const clear=view.querySelector('#clearSearchBtn');
-        const state=view.querySelector('#searchState');
-        const results=view.querySelector('#results');
+        const input = view.querySelector('#searchInput');
+        const clear = view.querySelector('#clearSearchBtn');
+        const state = view.querySelector('#searchState');
+        const results = view.querySelector('#results');
 
         input.value = q || '';
 
-        // --- главное: по Enter скрываем клавиатуру
         input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                input.blur();
-            }
+            if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
         });
 
         input.oninput = debounce(() => {
@@ -446,33 +549,23 @@
             doSearch(v, state, results);
         }, 220);
 
-        clear.onclick = ()=> {
-            input.value='';
-            updateHash({ q:'' }, true);
-            results.innerHTML='';
-            state.textContent='Введите запрос для поиска';
+        clear.onclick = () => {
+            input.value = '';
+            updateHash({ q: '' }, true);
+            results.innerHTML = '';
+            state.textContent = 'Введите запрос для поиска';
             input.focus();
         };
 
-        if(q) doSearch(q, state, results); else input.focus();
-
-        // === показываем Telegram Back вместо Close ===
-        function exitSearchToRoot(){
-            history.replaceState(null, '', location.pathname + location.search);
-            showGroupsScreen();
-        }
-        try {
-            tg?.MainButton?.hide();       // убираем «Закрыть»
-            tg?.BackButton?.show();       // показываем «Назад»
-            tg?.BackButton?.onClick(exitSearchToRoot);
-        } catch(e){ console.warn(e); }
+        if (q) doSearch(q, state, results); else input.focus();
     }
 
-    function openSearchScreen(){
+
+    function openSearchScreen() {
         const p = new URLSearchParams(location.hash.slice(1));
-        p.set('view','search');
-        p.delete('q');                 // чистый старт поиска
-        location.hash = '#'+p.toString(); // <-- одна запись в истории
+        p.set('view', 'search');
+        p.delete('q');
+        location.hash = '#' + p.toString(); // обычный push — «Назад» будет работать
     }
 
     let searchAbort=null;
