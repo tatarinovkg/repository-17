@@ -109,21 +109,19 @@
             tg.expand();
             applyTelegramTheme();
             tg.onEvent('themeChanged', applyTelegramTheme);
-            // стартовое состояние вычислим роутером
-            setNavForRoute();
+            // Никаких кнопок тут не выставляем — это делает только routeFromHash()
         } catch (e) { console.warn('TG init error', e); }
     }
 
-    // ======= NAV CORE =======
+
+    // ======= NAV CORE (single source of truth) =======
     let currentBackHandler = null;
 
     function isInTelegram() {
         return !!(window.Telegram && window.Telegram.WebApp);
     }
 
-    function isRootViewFromHash() {
-        // root = нет hash ИЛИ view=groups без group/service/search
-        const p = new URLSearchParams(location.hash.replace(/^#/, ''));
+    function isRootParams(p) {
         const view = p.get('view') || 'groups';
         const group = p.get('group');
         const service = p.get('service');
@@ -131,30 +129,29 @@
         return (view === 'groups' && !group && !service && !q);
     }
 
-    // безопасный «шаг назад»: если не получилось — идём на корень
+    // безопасный «шаг назад»: если история не двинулась — уходим на корень
     function goBackSafe() {
         const before = location.href;
         history.back();
-
         setTimeout(() => {
-            const after = location.href;
-            if (before === after) {
-                // не сработало (или история пуста) — явно уходим на корень
+            if (location.href === before) {
                 history.replaceState(null, '', location.pathname + location.search);
                 showGroupsScreen();
+                // важно: руками дергаем роутер, чтобы сразу обновить кнопки
+                routeFromHash();
             }
-        }, 120);
+        }, 150);
     }
 
-    // Показывает либо «Закрыть», либо «Назад».
-    // На Telegram используется встроенная кнопка, в браузере — #navBack.
-    function setNavMode(mode /* 'close' | 'back' */) {
+    // mode: 'close' | 'back'
+    // управляет и Telegram-кнопками, и DOM-кнопкой (фолбэк для браузера)
+    function setNavMode(mode) {
         const tg = isInTelegram() ? window.Telegram.WebApp : null;
         const domBack = document.getElementById('navBack');
 
-        // Сначала приводим DOM кнопку к нужному состоянию:
+        // --- DOM back (браузер) ---
         if (domBack) {
-            if (!isInTelegram() && mode === 'back') {
+            if (!tg && mode === 'back') {
                 domBack.classList.remove('hidden');
                 domBack.style.display = 'inline-flex';
                 domBack.onclick = () => goBackSafe();
@@ -165,18 +162,14 @@
             }
         }
 
-        if (!tg) return; // вне Telegram дальше ничего не делаем
-
+        // --- Telegram buttons ---
+        if (!tg) return;
         try {
-            // Спрятать всё, чтобы не было «моргания»
             tg.MainButton.hide();
             tg.BackButton.hide();
 
-            // Единый обработчик BackButton — переназначаем делегат
             if (currentBackHandler == null) {
-                tg.BackButton.onClick(() => {
-                    try { currentBackHandler && currentBackHandler(); } catch {}
-                });
+                tg.BackButton.onClick(() => { try { currentBackHandler && currentBackHandler(); } catch {} });
             }
             currentBackHandler = null;
 
@@ -191,12 +184,6 @@
         } catch (e) {
             console.warn('setNavMode error', e);
         }
-    }
-
-    // Вызываем на каждом роутинге: решает, какой режим нужен СЕЙЧАС
-    function setNavForRoute() {
-        const root = isRootViewFromHash();
-        setNavMode(root ? 'close' : 'back');
     }
 
     function applyTelegramTheme(){
@@ -276,19 +263,22 @@
     }
     function routeFromHash() {
         const p = new URLSearchParams(location.hash.replace(/^#/, ''));
+
+        // 1) СНАЧАЛА выставляем правильный режим навигации по НОВЫМ параметрам
+        setNavMode(isRootParams(p) ? 'close' : 'back');
+
+        // 2) Рендер
         const view = p.get('view') || 'groups';
         const groupId = p.get('group') || null;
         const serviceId = p.get('service') || null;
         const q = p.get('q') || '';
-
-        // ВАЖНО: сначала поставить правильные кнопки, потом рендер
-        setNavForRoute();
 
         if (view === 'search') { showSearchScreen(q); return; }
         if (serviceId)         { showServiceScreen(serviceId); return; }
         if (groupId)           { showGroupScreen(groupId); return; }
         showGroupsScreen();
     }
+
 
     function updateHash(partial, replace=false){
         const p=new URLSearchParams(location.hash.replace(/^#/,''));
@@ -366,18 +356,15 @@
         }
     }
 
-
-    // Root: Groups
     async function showGroupsScreen() {
         setTitle('Услуги');
-        setNavForRoute(); // будет «Закрыть»
-
         if (!groupsCache) {
             screen().innerHTML = pageLoading('Загрузка групп...');
             await fetchGroups();
         }
         renderGroups(groupsCache || []);
     }
+
 
     async function fetchGroups(){
         if(groupsCache || groupsLoading) { await groupsLoading; return groupsCache; }
@@ -407,12 +394,12 @@
     async function showGroupScreen(groupId) {
         const groupName = await fetchGroupName(groupId);
         setTitle(groupName);
-        setNavForRoute(); // будет «Назад»
 
         screen().innerHTML = pageLoading('Загрузка услуг.');
         const services = await fetchServices(groupId);
         renderServices(services, groupId);
     }
+
 
     async function fetchServices(groupId){
         if(servicesCache.has(groupId)) return servicesCache.get(groupId);
@@ -441,7 +428,6 @@
 
     async function showServiceScreen(serviceId) {
         setTitle('Услуга');
-        setNavForRoute(); // будет «Назад»
 
         screen().innerHTML = pageLoading('Загрузка услуги.');
         let service = serviceDetailsCache.get(serviceId);
@@ -510,7 +496,6 @@
 
     function showSearchScreen(q) {
         setTitle('Поиск');
-        setNavForRoute(); // будет «Назад»
 
         const view = document.createElement('div');
         view.className = 'space-y-3';
