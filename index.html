@@ -19,55 +19,244 @@
         }
     </script>
     <style>
-        :root { /* дефолты, чтобы IDE не ругался на custom properties */
+        /* =========================
+           THEME TOKENS
+           ========================= */
+        :root {
             color-scheme: light dark;
-            --app-bg: #ffffff; --app-fg: #0f172a;
-            --sd-from: #f8fafc; --sd-to: #e0e7ff; --sd-fg: #475569;
-            --dd-bg: #ffffff;
+
+            /* Light palette */
+            --color-bg: #ffffff;
+            --color-fg: #0f172a;
+
+            /* Elevations (light) */
+            --elev-0: #ffffff;               /* page bg */
+            --elev-1: rgba(255,255,255,0.95);/* cards */
+            --elev-2: rgba(255,255,255,0.98);/* inputs / sticky */
+
+            --border: #e2e8f0;               /* slate-200 */
+            --muted: #64748b;                /* slate-500 */
+            --muted-2: #94a3b8;              /* slate-400 */
+            --chip: #eef2ff;                 /* indigo-50 */
+
+            --brand: #5B7CFA;
+            --brand-strong: #3E57B8;
+
+            /* Header (light) */
+            --header-bg: rgba(255,255,255,0.68);
+            --header-border: rgba(226,232,240,0.8);
+            --header-blur: 8px;
+
+            /* Watermarks (light) */
+            --wm-svc: rgba(91,124,250,0.12);
+            --wm-emoji-op: 0.14;
+
+            /* Marquee defaults (IDE warnings fix) */
+            --marquee-duration: 10s;
+            --marquee-shift: 0px;
         }
-        #appTitleWrap {
-            position: relative;
-            overflow: hidden;
+
+        .dark :root {
+            /* Dark layered palette — различимые слои */
+            --color-bg: #0a0f1a;             /* page bg (самый тёмный) */
+            --color-fg: #e7eaf0;             /* чуть теплее белого */
+
+            /* Elevations (dark) — ЗАМЕТНО разные */
+            --elev-0: #0a0f1a;               /* page bg */
+            --elev-1: rgba(24,34,54,0.96);   /* cards (заметно светлее фона) */
+            --elev-2: rgba(34,48,72,0.96);   /* inputs/sticky (ещё светлее карточек) */
+
+            --border: #1f2937;               /* границы темнее */
+            --muted: #a3b2c5;                /* подписи светлее */
+            --muted-2: #cfd7e2;
+            --chip: #1e2a3f;                 /* чипы чуть светлее карточек */
+
+            /* Header (dark) — ещё прозрачнее и светлее, чем cards */
+            --header-bg: rgba(20,30,48,0.58);
+            --header-border: rgba(34,48,72,0.65);
+
+            /* Watermarks (dark) — ярче и светлее */
+            --wm-svc: rgba(91,124,250,0.26);
+            --wm-emoji-op: 0.28;
+
+            /* Иконки в дарке по-настоящему светлые */
+            --icon: #e6edf7;                 /* почти белые */
         }
-        #appTitle {
-            white-space: nowrap;
-            margin: 0;
+        :root { --icon: #64748b; }         /* light icons */
+
+        /* =========================
+           BASE
+           ========================= */
+        html, body { height: 100%; }
+        html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
+        body {
+            background: var(--color-bg);
+            color: var(--color-fg);
+            overscroll-behavior: none;
+            min-height: 100dvh;
         }
-        #appTitleText {
-            display: inline-block;
+        input, select, textarea { font-size: 16px; }
+
+        * { -webkit-tap-highlight-color: transparent; }
+
+        .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .break-anywhere { overflow-wrap:anywhere; word-break:break-word; }
+
+        .animate-in { animation: fadeSlideUp .22s ease-out both; }
+        @keyframes fadeSlideUp { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:translateY(0)} }
+
+        /* =========================
+           HEADER (sticky + blur)
+           ========================= */
+        header.sticky {
+            -webkit-backdrop-filter: blur(var(--header-blur));
+            backdrop-filter: blur(var(--header-blur));
+            background-color: var(--header-bg);
+            border-bottom: 1px solid var(--header-border);
+            transform: translateZ(0);
             will-change: transform;
-            transform: translateX(0);
-        }
-        #appTitleWrap.scrolling #appTitleText {
-            animation: title-marquee var(--marquee-duration, 10s) linear infinite;
         }
 
+        /* =========================
+           APP TITLE MARQUEE
+           ========================= */
+        #appTitleWrap { position: relative; overflow: hidden; }
+        #appTitle { white-space: nowrap; margin: 0; }
+        #appTitleText { display: inline-block; will-change: transform; transform: translateX(0); }
+        #appTitleWrap.scrolling #appTitleText { animation: title-marquee var(--marquee-duration) linear infinite; }
         @keyframes title-marquee {
-            0%   { transform: translateX(0); }
-            10%  { transform: translateX(0); }                /* пауза в начале */
-            90%  { transform: translateX(var(--marquee-shift, 0)); }
-            100% { transform: translateX(var(--marquee-shift, 0)); } /* пауза в конце */
+            0%,10% { transform: translateX(0); }
+            90%,100% { transform: translateX(var(--marquee-shift)); }
         }
-
         @media (prefers-reduced-motion: reduce) {
             #appTitleWrap.scrolling #appTitleText { animation: none; }
         }
 
-        header.sticky {
-            -webkit-backdrop-filter: blur(8px);
-            backdrop-filter: blur(8px);
-            transform: translateZ(0);
-            will-change: transform;
+        /* =========================
+           TOUCH/HOVER FIXES
+           ========================= */
+        @media (hover: none) {
+            button:hover, a:hover, [role="button"]:hover {
+                background: inherit !important;
+                color: inherit !important;
+                box-shadow: none !important;
+            }
         }
-        .dark :root { --app-bg:#0b1220; --app-fg:#e5e7eb; --sd-from:#0b1220; --sd-to:#1e263b; --sd-fg:#cbd5e1; --dd-bg:#0f172a; }
-        html, body { height: 100%;}
-        html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
-        body { background: var(--app-bg); color: var(--app-fg); overscroll-behavior: none; min-height: 100dvh; }
-        input, select, textarea { font-size: 16px; }
-        .animate-in { animation: fadeSlideUp .22s ease-out both; }
-        @keyframes fadeSlideUp { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:translateY(0)} }
-        .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-        .break-anywhere { overflow-wrap:anywhere; word-break:break-word; }
+        .no-focus-outline:focus:not(:focus-visible) { outline: none !important; }
+        .btn-pressable:active { transform: translateY(0.5px); filter: saturate(0.98) brightness(0.98); }
+
+        /* =========================
+           SEARCH CLEAR (desktop only)
+           ========================= */
+        .search-clear {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            width: 36px; height: 36px; display: none;
+            align-items: center; justify-content: center;
+            border-radius: 9999px; cursor: pointer; user-select: none;
+        }
+        .search-clear svg { width: 14px; height: 14px; pointer-events: none; display: block; color: var(--icon); }
+        @media (hover: hover) and (pointer: fine) {
+            .search-clear { display: flex; }
+            .search-clear:hover { background: rgba(15, 23, 42, 0.06); }
+            .dark .search-clear:hover { background: rgba(148,163,184,0.12); }
+            .search-clear:active { transform: translateY(-50%) scale(0.98); }
+        }
+        .search-clear.is-empty { visibility: hidden; pointer-events: none; }
+
+        /* =========================
+           CARDS (services, groups, rows)
+           ========================= */
+        .svc-card, .grp-card {
+            background: var(--elev-1);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Делаем видимую «слоистость» на десктопе */
+        @media (hover: hover) and (pointer: fine) {
+            .svc-card:hover, .grp-card:hover, .row-hover:hover {
+                box-shadow: 0 10px 24px -16px rgba(0,0,0,.20);
+                transform: translateY(-1px);
+            }
+            .svc-card .svc-chevron, .grp-card .grp-chevron { opacity: .9; transform: translateX(2px); }
+        }
+        .svc-card:active, .grp-card:active { transform: scale(0.997); }
+
+        .svc-subtle { color: var(--muted); }
+        .dark .svc-subtle { color: var(--muted-2); }
+
+        /* Группы — внутренние отступы и заголовок */
+        .grp-inner { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+        @media (hover:hover) and (pointer:fine) { .grp-inner { padding: 10px 14px; } }
+        .grp-title { font-weight: 700; line-height: 1.25; color: var(--brand); font-size: 1.02rem; }
+        @media (min-width: 768px) { .grp-title { font-size: 1rem; } }
+
+        /* =========================
+           WATERMARKS (инициалы/эмодзи)
+           ========================= */
+        .wm, .svc-watermark, .grp-watermark, .sr-watermark { position: relative; overflow: hidden; }
+        .wm::after, .svc-watermark::after, .grp-watermark::after, .sr-watermark::after {
+            position: absolute; right: 10px; bottom: -4px; line-height: 1;
+            pointer-events: none; user-select: none; content: "";
+        }
+
+        /* Service: буква */
+        .svc-watermark::after {
+            content: attr(data-mark);
+            font-weight: 800;
+            font-size: 44px;
+            color: var(--wm-svc);
+        }
+
+        /* Groups/Search: эмодзи (в дарке — реально светлее и ярче) */
+        .grp-watermark::after, .sr-watermark::after {
+            content: attr(data-emoji);
+            font-size: 48px;
+            opacity: var(--wm-emoji-op);
+        }
+        .dark .grp-watermark::after,
+        .dark .sr-watermark::after {
+            opacity: var(--wm-emoji-op);
+            filter: brightness(1.22) saturate(1.18); /* сделать эмодзи светлее и сочнее в дарке */
+        }
+        .grp-watermark[data-emoji=""]::after, .sr-watermark[data-emoji=""]::after { content: ""; }
+
+        /* =========================
+           CHEVRONS / ICONS
+           ========================= */
+        .row-chevron, .grp-chevron {
+            opacity: .7;
+            transition: transform .15s ease, opacity .15s ease;
+            flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+        }
+        .row-chevron svg, .grp-chevron svg { color: var(--icon); }
+        @media (hover:hover) and (pointer:fine) {
+            .row-hover:hover .row-chevron,
+            .row-hover:hover .grp-chevron { transform: translateX(2px); opacity: .95; }
+        }
+
+        /* =========================
+           SEARCH ROWS (водяной знак как у групп)
+           ========================= */
+        /* .sr-watermark уже определён выше (shared с группами) */
+
+        /* =========================
+           CHIPS / SMALL SURFACES
+           ========================= */
+        .svc-chip {
+            min-width: 24px; height: 24px;
+            border-radius: 8px;
+            background: var(--chip);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 14px; line-height: 1;
+        }
+
+        /* =========================
+           TITLE helpers
+           ========================= */
+        #appTitleWrap { position: relative; overflow: hidden; }
     </style>
 </head>
 <body class="h-full bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100">
@@ -97,93 +286,18 @@
 </div>
 
 <script>
-
+    // ============ Telegram init ============
     const tg = window.Telegram ? window.Telegram.WebApp : null;
     const apiBaseUrl = 'https://bot.ovimex72.ru/api/';
 
-    function initTelegramApp() {
-        const tg = isInTelegram() ? window.Telegram.WebApp : null;
+    function initTelegramApp(){
         if (!tg) return;
-        try {
-            tg.ready();
-            tg.expand();
+        try{
+            tg.ready(); tg.expand();
             applyTelegramTheme();
             tg.onEvent('themeChanged', applyTelegramTheme);
-            // Никаких кнопок тут не выставляем — это делает только routeFromHash()
-        } catch (e) { console.warn('TG init error', e); }
-    }
-
-
-    // ======= NAV CORE (single source of truth) =======
-    let currentBackHandler = null;
-
-    function isInTelegram() {
-        return !!(window.Telegram && window.Telegram.WebApp);
-    }
-
-    function isRootParams(p) {
-        const view = p.get('view') || 'groups';
-        const group = p.get('group');
-        const service = p.get('service');
-        const q = p.get('q');
-        return (view === 'groups' && !group && !service && !q);
-    }
-
-    // безопасный «шаг назад»: если история не двинулась — уходим на корень
-    function goBackSafe() {
-        const before = location.href;
-        history.back();
-        setTimeout(() => {
-            if (location.href === before) {
-                history.replaceState(null, '', location.pathname + location.search);
-                showGroupsScreen();
-                // важно: руками дергаем роутер, чтобы сразу обновить кнопки
-                routeFromHash();
-            }
-        }, 150);
-    }
-
-    // mode: 'close' | 'back'
-    // управляет и Telegram-кнопками, и DOM-кнопкой (фолбэк для браузера)
-    function setNavMode(mode) {
-        const tg = isInTelegram() ? window.Telegram.WebApp : null;
-        const domBack = document.getElementById('navBack');
-
-        // --- DOM back (браузер) ---
-        if (domBack) {
-            if (!tg && mode === 'back') {
-                domBack.classList.remove('hidden');
-                domBack.style.display = 'inline-flex';
-                domBack.onclick = () => goBackSafe();
-            } else {
-                domBack.classList.add('hidden');
-                domBack.style.display = 'none';
-                domBack.onclick = null;
-            }
-        }
-
-        // --- Telegram buttons ---
-        if (!tg) return;
-        try {
-            tg.MainButton.hide();
-            tg.BackButton.hide();
-
-            if (currentBackHandler == null) {
-                tg.BackButton.onClick(() => { try { currentBackHandler && currentBackHandler(); } catch {} });
-            }
-            currentBackHandler = null;
-
-            if (mode === 'back') {
-                currentBackHandler = () => goBackSafe();
-                tg.BackButton.show();
-            } else {
-                tg.MainButton.setParams({ text: 'Закрыть приложение', is_visible: true });
-                tg.MainButton.onClick(() => tg.close());
-                tg.MainButton.show();
-            }
-        } catch (e) {
-            console.warn('setNavMode error', e);
-        }
+            // состояние MainButton/назад выставим централизованно из роутера
+        }catch(e){ console.warn('TG init error', e); }
     }
 
     function applyTelegramTheme(){
@@ -233,9 +347,11 @@
             updateThemeIcon();
         }catch{}
     }
-    function bindHeader() {
-        document.getElementById('openSearch').onclick = () => { updateHash({ view: 'search', q: '' }); };
-        document.getElementById('themeToggle').onclick = () => { toggleTheme(); haptic('impact'); };
+    function bindHeader(){
+        document.getElementById('openSearch').onclick = ()=> { updateHash({ view: 'search', q: '' }); };
+        document.getElementById('themeToggle').onclick = ()=> { toggleTheme(); haptic('impact'); };
+        const backBtn = document.getElementById('navBack');
+        if (backBtn) backBtn.onclick = ()=> goBackSafe();
     }
 
     function updateThemeIcon(){
@@ -253,32 +369,81 @@
         updateThemeIcon();
     }
 
-    // ============ Router ============
     function routeFromEntry(){
-        const sp=new URLSearchParams(location.search); const sid=sp.get('serviceId');
-        if(sid && /^\d+$/.test(sid)) { showServiceScreen(Number(sid)); return; }
-        // TG start_param
-        try{ const startParam=tg?.initDataUnsafe?.start_param; const m=startParam?.match(/(\d{2,})/); if(m){ showServiceScreen(Number(m[1])); return; } }catch{}
+        const sp = new URLSearchParams(location.search);
+        const sid = sp.get('serviceId');
+        if (sid && /^\d+$/.test(sid)) {
+            setHeaderActionsForRoot(false);
+            setBackVisible(true);
+            showServiceScreen(Number(sid));
+            return;
+        }
+        try {
+            const startParam = tg?.initDataUnsafe?.start_param;
+            const m = startParam?.match(/(\d{2,})/);
+            if (m) {
+                setHeaderActionsForRoot(false);
+                setBackVisible(true);
+                showServiceScreen(Number(m[1]));
+                return;
+            }
+        } catch {}
         routeFromHash();
     }
-    function routeFromHash() {
+
+
+    function routeFromHash(){
         const p = new URLSearchParams(location.hash.replace(/^#/, ''));
-
-        // 1) СНАЧАЛА выставляем правильный режим навигации по НОВЫМ параметрам
-        setNavMode(isRootParams(p) ? 'close' : 'back');
-
-        // 2) Рендер
         const view = p.get('view') || 'groups';
         const groupId = p.get('group') || null;
         const serviceId = p.get('service') || null;
         const q = p.get('q') || '';
 
+        // 1) решаем, root это или нет
+        const isRoot = (view === 'groups' && !groupId && !serviceId && !q);
+
+        // поиск + тема: только на root
+        setHeaderActionsForRoot(isRoot);
+
+        // кнопка "Назад": видна везде, кроме root
+        setBackVisible(!isRoot);
+
+        // 2) рендерим
         if (view === 'search') { showSearchScreen(q); return; }
         if (serviceId)         { showServiceScreen(serviceId); return; }
         if (groupId)           { showGroupScreen(groupId); return; }
         showGroupsScreen();
     }
 
+
+
+    function isRootFromHash(){
+        const p = new URLSearchParams(location.hash.replace(/^#/, ''));
+        const view = p.get('view') || 'groups';
+        const group = p.get('group');
+        const service = p.get('service');
+        const q = p.get('q');
+        return (view === 'groups' && !group && !service && !q);
+    }
+
+
+    // На корне — только MainButton "Закрыть", назад скрыт.
+    // Не на корне — показываем только DOM-назад, MainButton скрыт.
+    function updateNavForRoute(){
+        const root = isRootFromHash();
+        setBackVisible(!root);
+
+        if (!tg) return;
+        try {
+            if (root) {
+                tg.MainButton.setParams({ text: 'Закрыть приложение', is_visible: true });
+                tg.MainButton.onClick(() => tg.close());
+                tg.MainButton.show();
+            } else {
+                tg.MainButton.hide();
+            }
+        } catch(e){ console.warn('MainButton error', e); }
+    }
 
     function updateHash(partial, replace=false){
         const p=new URLSearchParams(location.hash.replace(/^#/,''));
@@ -348,23 +513,57 @@
         if (v) {
             btn.classList.remove('hidden');
             btn.style.display = 'inline-flex';
-            try { tg?.BackButton.show(); } catch {}
         } else {
             btn.classList.add('hidden');
             btn.style.display = 'none';
-            try { tg?.BackButton.hide(); } catch {}
         }
     }
 
-    async function showGroupsScreen() {
-        setTitle('Услуги');
-        if (!groupsCache) {
+    function setHeaderActionsForRoot(isRoot) {
+        const searchBtn = document.getElementById('openSearch');
+        const themeBtn  = document.getElementById('themeToggle');
+
+        [searchBtn, themeBtn].forEach(el => {
+            if (!el) return;
+            if (isRoot) {
+                el.classList.remove('hidden');
+                el.style.display = 'inline-flex';
+                el.setAttribute('aria-hidden', 'false');
+                el.tabIndex = 0;
+            } else {
+                el.classList.add('hidden');
+                el.style.display = 'none';
+                el.setAttribute('aria-hidden', 'true');
+                el.tabIndex = -1;
+            }
+        });
+    }
+
+
+    // Безопасный шаг назад: если история не двинулась — уходим на корень
+    function goBackSafe(){
+        const before = location.href;
+        history.back();
+        setTimeout(() => {
+            if (location.href === before) {
+                history.replaceState(null, '', location.pathname + location.search);
+                showGroupsScreen();
+                routeFromHash();
+            }
+        }, 120);
+    }
+
+
+
+    // Root: Groups
+    async function showGroupsScreen(){
+        setTitle('Услуги');                 // updateNavForRoute уже вызван роутером
+        if(!groupsCache){
             screen().innerHTML = pageLoading('Загрузка групп...');
             await fetchGroups();
         }
-        renderGroups(groupsCache || []);
+        renderGroups(groupsCache||[]);
     }
-
 
     async function fetchGroups(){
         if(groupsCache || groupsLoading) { await groupsLoading; return groupsCache; }
@@ -378,20 +577,114 @@
         await groupsLoading; return groupsCache;
     }
     function renderGroups(groups){
-        if(!groups?.length){ screen().innerHTML = emptyState('Группы не найдены','Попробуйте позже.'); return; }
-        const wrapper=document.createElement('div'); wrapper.className='grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
-        groups.forEach(g=>{
-            const gid=getGroupId(g), name=getGroupName(g);
-            const card=document.createElement('button'); card.className='text-left rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-white dark:bg-slate-900 hover:shadow-soft transition animate-in';
-            card.innerHTML=`<div class="text-lg font-semibold text-brand mb-1 break-anywhere">${escapeHTML(name)}</div>
-                      <div class="text-sm text-slate-500">Открыть группу</div>`;
-            card.onclick=()=>{ updateHash({ view:'group', group: gid }); haptic('impact'); };
+        if (!groups?.length){
+            screen().innerHTML = emptyState('Группы не найдены','Попробуйте позже.');
+            return;
+        }
+
+        // такая же сетка и отступы, как у услуг
+        const wrapper = document.createElement('div');
+        wrapper.className = 'grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
+
+        groups.forEach(g => {
+            const gid   = getGroupId(g);
+            const raw   = getGroupName(g) || '';
+            const { label, emoji } = extractGroupLabelAndEmoji(raw); // твой «умный» парсер
+
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = [
+                // те же визуальные классы, что у услуг
+                'svc-card grp-watermark group w-full text-left',
+                'rounded-2xl border border-slate-200 dark:border-slate-800',
+                'bg-white/95 dark:bg-slate-900/95',
+                'px-4 py-4 md:px-4 md:py-4',
+                'transition duration-150 ease-out',
+                'focus:outline-none focus:ring-2 focus:ring-brand'
+            ].join(' ');
+
+            // эмодзи уедет в водяной знак через CSS
+            card.setAttribute('data-emoji', emoji || '');
+
+            card.innerHTML = `
+      <div class="flex items-center gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="text-base md:text-[1.05rem] font-semibold leading-snug text-brand break-anywhere">
+            ${escapeHTML(label)}
+          </div>
+        </div>
+        <div class="row-chevron svc-chevron shrink-0 opacity-60 transition-transform">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               class="text-slate-400 dark:text-slate-400">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </div>
+      </div>
+    `;
+
+            card.onclick = () => { updateHash({ view:'group', group: gid }); haptic('impact'); };
             wrapper.appendChild(card);
         });
-        screen().innerHTML=''; screen().appendChild(wrapper);
+
+        screen().innerHTML = '';
+        screen().appendChild(wrapper);
     }
 
-    async function showGroupScreen(groupId) {
+    function extractGroupLabelAndEmoji(input){
+        const s = String(input || '').trim();
+
+        // Диапазоны эмодзи + вариации + модификаторы + ZWJ
+        const EMOJI_COMPONENT = '(?:[\\u{1F3FB}-\\u{1F3FF}])?';        // модификаторы кожи
+        const VS16 = '\\uFE0F?';                                       // вариационный селектор
+        const ZWJ = '\\u200D';                                         // zero-width joiner
+        const EMOJI_CORE =
+            '(?:' +
+            '[\\u{1F1E6}-\\u{1F1FF}]{2}' +                // флаги (две регион. буквы)
+            '|' +
+            '[\\u{1F600}-\\u{1F64F}]' +                   // смайлики
+            '|' +
+            '[\\u{1F300}-\\u{1F5FF}]' +                   // символы и пиктограммы
+            '|' +
+            '[\\u{1F680}-\\u{1F6FF}]' +                   // транспорт/карты
+            '|' +
+            '[\\u{2600}-\\u{26FF}]' +                     // разное
+            '|' +
+            '[\\u{2700}-\\u{27BF}]' +                     // дингбаты
+            '|' +
+            '[\\u{1F900}-\\u{1F9FF}]' +                   // расширенные эмодзи
+            '|' +
+            '[\\u{1FA70}-\\u{1FAFF}]' +                   // доп. эмодзи
+            ')';
+
+        // Один «графемный кластер» эмодзи: ядро + (VS16) + (модификатор) + цепочки через ZWJ
+        const EMOJI_SEQ = `${EMOJI_CORE}${VS16}${EMOJI_COMPONENT}(?:${ZWJ}${EMOJI_CORE}${VS16}${EMOJI_COMPONENT})*`;
+
+        // 1) ищем последовательность эмодзи в КОНЦЕ
+        const endRe = new RegExp(`^(.*?)(?:\\s*(${EMOJI_SEQ}(?:\\s*${EMOJI_SEQ})*))\\s*$`, 'u');
+        const mEnd = s.match(endRe);
+        if (mEnd && mEnd[2]) {
+            const base = (mEnd[1] || '').trim().replace(/[,\s]+$/, '');
+            const emo  = (mEnd[2] || '').trim();
+            return { label: base || s, emoji: emo };
+        }
+
+        // 2) если в конце нет — берём последний эмодзи в строке (как запасной вариант)
+        const anyRe = new RegExp(`${EMOJI_SEQ}`, 'gu');
+        let lastEmoji = '';
+        let match;
+        while ((match = anyRe.exec(s)) !== null) lastEmoji = match[0];
+
+        if (lastEmoji) {
+            const cleaned = s.replace(new RegExp(`${lastEmoji}\\s*$`, 'u'), '').trim().replace(/[,\s]+$/,'');
+            return { label: cleaned || s, emoji: lastEmoji };
+        }
+
+        // 3) вообще нет эмодзи
+        return { label: s, emoji: '' };
+    }
+
+    async function showGroupScreen(groupId){
         const groupName = await fetchGroupName(groupId);
         setTitle(groupName);
 
@@ -399,7 +692,6 @@
         const services = await fetchServices(groupId);
         renderServices(services, groupId);
     }
-
 
     async function fetchServices(groupId){
         if(servicesCache.has(groupId)) return servicesCache.get(groupId);
@@ -411,33 +703,67 @@
     }
 
     function renderServices(services, groupId){
-        const items = Array.isArray(services)? services : (services?.items||[]);
-        if(!items.length){ screen().innerHTML = emptyState('В этой группе нет услуг','Попробуйте другую группу.'); return; }
-        const grid=document.createElement('div'); grid.className='grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
-        items.forEach(s=>{
-            const sid=getServiceId(s), title=getServiceTitle(s), provider=getProviderName(s);
-            const card=document.createElement('article'); card.className='rounded-lg border border-slate-200 dark:border-slate-800 p-4 pr-9 pt-7 hover:shadow-soft hover:translate-y-[-1px] transition bg-white dark:bg-slate-900 animate-in';
-            card.innerHTML=`<h3 class="font-semibold leading-tight text-brand break-anywhere">${escapeHTML(title)}</h3>
-                      ${provider? `<p class="mt-1 text-xs text-slate-500 break-anywhere">${escapeHTML(provider)}</p>`:''}
-                      <div class="mt-4"><button class="w-full rounded-lg bg-brand text-white px-3 py-2 hover:bg-brand-600 active:bg-brand-700 transition">Подробнее</button></div>`;
-            card.onclick=()=>{ updateHash({ view:'service', service: sid, group: groupId }); haptic('impact'); };
-            grid.appendChild(card);
+        const items = Array.isArray(services) ? services : (services?.items || []);
+        if (!items.length) { screen().innerHTML = emptyState('В этой группе нет услуг','Попробуйте другую группу.'); return; }
+
+        const grid = document.createElement('div');
+        grid.className = 'grid gap-3 grid-cols-1 md:grid-cols-2 md:gap-4 lg:grid-cols-3';
+
+        items.forEach((s) => {
+            const sid = getServiceId(s);
+            const title = getServiceTitle(s);
+            const prov = getProviderName(s);
+            const mark = (title || 'U').trim().charAt(0).toUpperCase();
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = [
+                'svc-card svc-watermark group w-full text-left',
+                'rounded-2xl border border-slate-200 dark:border-slate-800',
+                'bg-white/95 dark:bg-slate-900/95',
+                'px-4 py-4 md:px-4 md:py-4',
+                'transition duration-150 ease-out',
+                'focus:outline-none focus:ring-2 focus:ring-brand'
+            ].join(' ');
+            btn.setAttribute('data-mark', mark);
+
+            btn.innerHTML = `
+      <div class="flex items-center gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="text-base md:text-[1.05rem] font-semibold leading-snug text-brand break-anywhere">
+            ${escapeHTML(title)}
+          </div>
+          ${prov ? `<div class="mt-0.5 text-[13.5px] md:text-sm svc-subtle break-anywhere">${escapeHTML(prov)}</div>` : ''}
+        </div>
+        <div class="svc-chevron shrink-0 opacity-60 transition-transform">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               class="text-slate-400 dark:text-slate-400">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </div>
+      </div>
+    `;
+
+            btn.onclick = () => { updateHash({ view:'service', service:sid, group:groupId }); haptic('impact'); };
+            grid.appendChild(btn);
         });
-        screen().innerHTML=''; screen().appendChild(grid);
+
+        screen().innerHTML = ''; screen().appendChild(grid);
     }
 
-    async function showServiceScreen(serviceId) {
+    async function showServiceScreen(serviceId){
         setTitle('Услуга');
 
         screen().innerHTML = pageLoading('Загрузка услуги.');
         let service = serviceDetailsCache.get(serviceId);
-        if (!service) {
-            try {
-                const r = await fetch(`${apiBaseUrl}service_details/${serviceId}`, { method:'POST', headers:{'Content-Type':'application/json'} });
-                if (!r.ok) throw new Error('Ошибка сервера');
-                service = await r.json();
+        if(!service){
+            try{
+                const r=await fetch(`${apiBaseUrl}service_details/${serviceId}`, { method:'POST', headers:{'Content-Type':'application/json'} });
+                if(!r.ok) throw new Error('Ошибка сервера');
+                service=await r.json();
                 serviceDetailsCache.set(serviceId, service);
-            } catch(e) {
+            } catch(e){
                 screen().innerHTML = pageError('Не удалось загрузить данные услуги.');
                 console.error(e);
                 return;
@@ -494,63 +820,97 @@
         }catch(e){ container.innerHTML = pageError('Не удалось загрузить отзывы.'); console.error(e); }
     }
 
-    function showSearchScreen(q) {
+    function showSearchScreen(q){
         setTitle('Поиск');
 
         const view = document.createElement('div');
         view.className = 'space-y-3';
         view.innerHTML = `
-            <div class="sticky top-14 pt-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur z-10">
-              <div class="relative">
-                <input id="searchInput" type="text" inputmode="search" autocomplete="off" spellcheck="false"
-                       placeholder="Найти услугу..."
-                       class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-800 pl-11 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-brand text-base shadow transition" />
-                <span class="absolute left-3 top-3.5 text-slate-400">🔎</span>
-                <button id="clearSearchBtn" class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xl leading-none px-2" aria-label="Очистить">&times;</button>
-              </div>
-            </div>
-            <div id="searchState" class="text-center text-slate-500 py-6">Введите запрос для поиска</div>
-            <div id="results" class="space-y-2"></div>`;
+    <div class="sticky top-14 pt-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur z-10">
+      <div class="relative">
+        <input id="searchInput" type="text" inputmode="search" autocomplete="off" spellcheck="false"
+               placeholder="Найти услугу..."
+               class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-800 pl-11 pr-14 py-3
+                      focus:outline-none focus:ring-2 focus:ring-brand text-base shadow transition" />
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 select-none">🔎</span>
+
+        <!-- круглый хитбокс 36x36, крестик — SVG по центру -->
+        <button id="clearSearchBtn" class="search-clear is-empty" aria-label="Очистить" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div id="searchState" class="text-center text-slate-500 py-6">Введите запрос для поиска</div>
+    <div id="results" class="space-y-2"></div>
+  `;
         screen().innerHTML = '';
         screen().appendChild(view);
 
-        const input = view.querySelector('#searchInput');
-        const clear = view.querySelector('#clearSearchBtn');
-        const state = view.querySelector('#searchState');
+        const input   = view.querySelector('#searchInput');
+        const clear   = view.querySelector('#clearSearchBtn');
+        const state   = view.querySelector('#searchState');
         const results = view.querySelector('#results');
 
+        // инициал
         input.value = q || '';
+        updateClearVisibility(); // показать крестик сразу, если q был
 
+        // 1) мгновенно показывать/прятать крестик при любом вводе (без debounce)
+        input.addEventListener('input', () => {
+            updateClearVisibility();
+        });
+
+        // 2) Enter — спрятать клавиатуру
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
         });
 
-        input.oninput = debounce(() => {
+        // 3) сетевой поиск — отдельно, с debounce (не влияет на крестик)
+        input.addEventListener('input', debounce(() => {
             const v = input.value.trim();
             const p = new URLSearchParams(location.hash.slice(1));
             p.set('view','search');
             if (v) p.set('q', v); else p.delete('q');
             history.replaceState(null, '', '#'+p.toString());
             doSearch(v, state, results);
-        }, 220);
+        }, 220));
 
+        // клик по крестику
         clear.onclick = () => {
             input.value = '';
+            updateClearVisibility();
             updateHash({ q: '' }, true);
             results.innerHTML = '';
             state.textContent = 'Введите запрос для поиска';
             input.focus();
         };
 
+        // первый поиск (если q был)
         if (q) doSearch(q, state, results); else input.focus();
+
+        // ——— helpers ———
+        function isDesktopPointer(){
+            return window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+        }
+        function updateClearVisibility(){
+            // на мобильных (без hover/fine pointer) кнопка всегда скрыта
+            if (!isDesktopPointer()) {
+                clear.classList.add('is-empty');
+                return;
+            }
+            const empty = input.value.trim().length === 0;
+            clear.classList.toggle('is-empty', empty);
+        }
     }
 
-
-    function openSearchScreen() {
+    function openSearchScreen(){
         const p = new URLSearchParams(location.hash.slice(1));
-        p.set('view', 'search');
-        p.delete('q');
-        location.hash = '#' + p.toString(); // обычный push — «Назад» будет работать
+        p.set('view','search');
+        p.delete('q');                 // чистый старт поиска
+        location.hash = '#'+p.toString(); // <-- одна запись в истории
     }
 
     let searchAbort=null;
@@ -570,15 +930,13 @@
     function renderSearchResults(results, stateEl, listEl) {
         const items = Array.isArray(results) ? results : [];
 
-        // 1) Пустая выдача — показываем сообщение и очищаем список
         if (!items.length) {
-            stateEl.classList.remove('hidden');          // показать сообщение
+            stateEl.classList.remove('hidden');
             stateEl.textContent = 'Ничего не найдено';
             listEl.innerHTML = '';
             return;
         }
 
-        // 2) Есть результаты — скрываем состояние и рисуем список
         stateEl.classList.add('hidden');
         listEl.innerHTML = '';
 
@@ -586,31 +944,51 @@
 
         items.forEach((item) => {
             const sid   = item.servicesID ?? item.serviceId ?? item.id;
-            const gid   = item.groupId ?? item.groupID ?? item.GroupID;
+            const gid   = item.groupId   ?? item.groupID   ?? item.GroupID;
             const title = item.text || item.serviceName || 'Услуга';
             const prov  = item.providerName || '';
-            const gname = item.groupName || '';
+            const gnameRaw = item.groupName || '';
+
+            // убираем эмодзи из текста группы
+            const { label: gnameClean, emoji: groupEmoji } = extractGroupLabelAndEmoji(gnameRaw);
 
             const row = document.createElement('button');
             row.type = 'button';
-            row.className = 'w-full text-left rounded-xl border border-slate-200 dark:border-slate-800 p-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition';
+            row.className = [
+                'row-hover sr-watermark w-full text-left',
+                'rounded-xl border border-slate-200 dark:border-slate-800',
+                'p-3 bg-white dark:bg-slate-900',
+                'transition'
+            ].join(' ');
+            row.setAttribute('data-emoji', groupEmoji || '');
+
             row.innerHTML = `
-      <div class="font-semibold text-brand text-base leading-tight break-anywhere">${escapeHTML(title)}</div>
-      <div class="text-slate-600 dark:text-slate-400 text-sm mt-0.5 break-anywhere">${escapeHTML(prov)}</div>
-      <div class="text-slate-400 text-xs mt-0.5 break-anywhere">${escapeHTML(gname)}</div>
+      <div class="flex items-center gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="font-semibold text-brand text-base leading-tight break-anywhere">
+            ${escapeHTML(title)}
+          </div>
+          ${prov ? `<div class="text-slate-600 dark:text-slate-400 text-sm mt-0.5 break-anywhere">${escapeHTML(prov)}</div>` : ''}
+          ${gnameClean ? `<div class="text-slate-400 text-xs mt-0.5 break-anywhere">${escapeHTML(gnameClean)}</div>` : ''}
+        </div>
+        <div class="row-chevron shrink-0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               class="text-slate-400 dark:text-slate-400">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </div>
+      </div>
     `;
 
-            // Клик по результату: переходим к детали услуги, СОХРАНЯЯ шаг «поиск» в истории
             row.onclick = () => {
                 const p = new URLSearchParams(location.hash.slice(1));
                 p.set('view', 'service');
                 if (sid != null) p.set('service', sid);
                 if (gid != null) p.set('group', gid);
-                p.delete('q'); // сам экран услуги q не использует
-
-                // ВАЖНО: пушим новую запись (location.hash), а НЕ replaceState:
-                // так «Назад» вернёт к предыдущему хэшу — экрану поиска с тем же q.
+                p.delete('q');
                 location.hash = '#' + p.toString();
+                haptic('impact');
             };
 
             frag.appendChild(row);
