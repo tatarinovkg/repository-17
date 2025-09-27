@@ -254,24 +254,9 @@
         window.addEventListener('resize', refreshTitleMarquee);
     }
 
-    function setBackVisible(v){
-        const btn = document.getElementById('navBack');
-        if (!btn) return;
-        if (v) {
-            btn.classList.remove('hidden');
-            btn.style.display = 'inline-flex';
-            try { tg?.BackButton.show(); } catch {}
-        } else {
-            btn.classList.add('hidden');
-            btn.style.display = 'none';
-            try { tg?.BackButton.hide(); } catch {}
-        }
-    }
-
-
     // Root: Groups
     async function showGroupsScreen(){
-        setBackVisible(false); setTitle('Услуги');
+        setTitle('Услуги');
         if(!groupsCache){ screen().innerHTML = pageLoading('Загрузка групп...'); await fetchGroups(); }
         renderGroups(groupsCache||[]);
     }
@@ -302,7 +287,6 @@
 
     // Group screen
     async function showGroupScreen(groupId){
-        setBackVisible(false);
         const groupName = await fetchGroupName(groupId);
         setTitle(groupName);
 
@@ -346,7 +330,6 @@
 
     // Service screen
     async function showServiceScreen(serviceId){
-        setBackVisible(false);
         setTitle('Услуга');
 
         // Сбросить «Назад» к историческому поведению (к поиску, если пришли из него)
@@ -422,7 +405,6 @@
     }
 
     function showSearchScreen(q){
-        setBackVisible(false);
         setTitle('Поиск');
 
         const view=document.createElement('div');
