@@ -359,7 +359,6 @@
         initTitleMarquee();
         window.addEventListener('hashchange', routeFromHash);
         routeFromEntry();
-        installSharingIntegrationOnce();
     });
     function fastThemeBoot(){
         try{
@@ -1137,131 +1136,6 @@
     function formatPhoneNumbers(text){ const lines=String(text||'').split('\n'); return lines.map(l=>{ const t=l.trim(); const num=t.replace(/[^\d+]/g,''); if(num.length>=7){ return `<a class=\"underline underline-offset-2\" href=\"tel:${escapeHTML(num)}\">${escapeHTML(t)}</a>`;} return escapeHTML(t); }).join('<br>'); }
     function linkify(text){ const esc=escapeHTML(String(text||'')); const urlRe=/\b((?:https?:\/\/|ftp:\/\/)[^\s<>"']+|www\.[^\s<>"']+)/gi; return esc.replace(urlRe,(m)=>{ const href=m.startsWith('http')||m.startsWith('ftp')? m : ('https://'+m); return `<a class=\"underline underline-offset-2 break-anywhere\" href=\"${href}\" target=\"_blank\" rel=\"noopener noreferrer\">${m}</a>`; }); }
     function calculateAverageRating(list){ if(!Array.isArray(list)||list.length===0) return 0; const nums=list.map(x=>Number(x.feedbackRating)).filter(n=>Number.isFinite(n)); if(nums.length===0) return 0; const avg=nums.reduce((a,b)=>a+b,0)/nums.length; return Math.round(avg*10)/10; }
-
-    async function apiFetchWithInitData(path, opts = {}) {
-        const tg = window.Telegram?.WebApp;
-        const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
-        if (tg?.initData) headers['X-Telegram-Init-Data'] = tg.initData;
-
-        const base = (typeof apiBaseUrl === 'string' ? apiBaseUrl.replace(/\/+$/,'') : '') || '/api/';
-        const res = await fetch(base + (path.startsWith('/') ? path.slice(1) : path), Object.assign({}, opts, { headers }));
-        if (!res.ok) {
-            const text = await res.text().catch(()=> '');
-            throw new Error(`API ${path} ${res.status}: ${text}`);
-        }
-        return res.json();
-    }
-
-    const sharePreparedMessageForEntity = (() => {
-        let locked = false;                           // лёгкий дебаунс от повторных нажатий
-        return async function sharePreparedMessageForEntity(entityType, entityId) {
-            if (!entityType || !entityId) return;
-            if (locked) return; locked = true; setTimeout(()=> locked = false, 700);
-
-            const tg = window.Telegram?.WebApp;
-            try {
-                const payload = { entity_type: String(entityType), entity_id: Number(entityId) };
-                const resp = await apiFetchWithInitData('/share/prepare', {
-                    method: 'POST',
-                    body: JSON.stringify(payload)
-                });
-
-                if (!resp?.prepared_id) throw new Error('No prepared_id from backend');
-
-                if (tg?.shareMessage) {
-                    tg.shareMessage(resp.prepared_id, ok => {
-                        try {
-                            if (ok && tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                            if (!ok && tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
-                        } catch {}
-                    });
-                } else {
-                    // фолбэк: откроем диплинк (всё равно попадут в Mini-App)
-                    window.open(resp.deep_link, '_blank');
-                }
-            } catch (e) {
-                console.error('share error', e);
-                try { window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error'); } catch {}
-                alert('Не удалось подготовить шаринг.');
-            }
-        };
-    })();
-
-    function shareObserverInstall() {
-        const root = document.getElementById('screen');
-        if (!root) return;
-
-        const ensureShareBtn = () => {
-            // не плодим дубликаты
-            if (root.querySelector('[data-share-btn]')) return;
-
-            // определяем контекст из текущего hash
-            const p = new URLSearchParams(location.hash.replace(/^#/, ''));
-            const view = p.get('view') || 'groups';
-            const groupId = p.get('group');
-            const serviceId = p.get('service');
-
-            // кнопка нужна только на экранах группы или услуги
-            let entityType = null, entityId = null, label = '';
-            if (serviceId) {
-                entityType = 'service'; entityId = Number(serviceId); label = 'Поделиться услугой';
-            } else if (groupId) {
-                entityType = 'group';   entityId = Number(groupId);   label = 'Поделиться группой';
-            } else {
-                return;
-            }
-
-            // контейнер — в конец текущего экрана
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.setAttribute('data-share-btn', '1');
-            btn.className = 'mt-4 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800';
-            btn.textContent = label;
-
-            btn.addEventListener('click', () => sharePreparedMessageForEntity(entityType, entityId));
-
-            // аккуратно добавим в низ экрана
-            root.appendChild(btn);
-        };
-
-        const mo = new MutationObserver(() => {
-            // каждый раз при замене содержимого экрана — пытаемся проставить кнопку
-            try { ensureShareBtn(); } catch (e) { console.warn(e); }
-        });
-
-        mo.observe(root, { childList: true, subtree: false });
-        // первая попытка сразу
-        try { ensureShareBtn(); } catch {}
-    }
-
-    async function deepStartResolverInit() {
-        const tg = window.Telegram?.WebApp;
-        const token = tg?.initDataUnsafe?.start_param || tg?.tgWebAppStartParam || '';
-        if (!token) return;
-
-        try {
-            const info = await apiFetchWithInitData(`/share/resolve?token=${encodeURIComponent(token)}`, { method: 'GET' });
-            if (info?.entity_type === 'group') {
-                const p = new URLSearchParams(location.hash.replace(/^#/, ''));
-                p.set('view', 'group'); p.set('group', String(info.entity_id)); p.delete('service');
-                location.hash = '#' + p.toString();
-            } else if (info?.entity_type === 'service') {
-                // можно дополнительно подгрузить groupID через твой /api/service_details/<id>, если нужно в hash
-                const p = new URLSearchParams(location.hash.replace(/^#/, ''));
-                p.set('view', 'service'); p.set('service', String(info.entity_id));
-                location.hash = '#' + p.toString();
-            }
-            try { tg?.HapticFeedback?.notificationOccurred('success'); } catch {}
-        } catch (e) {
-            console.error('deep resolve failed', e);
-            try { tg?.HapticFeedback?.notificationOccurred('error'); } catch {}
-        }
-    }
-
-    function installSharingIntegrationOnce() {
-        try { deepStartResolverInit(); } catch(e){ console.warn(e); }
-        try { shareObserverInstall(); } catch(e){ console.warn(e); }
-    }
 </script>
 </body>
 </html>
