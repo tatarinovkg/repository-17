@@ -117,6 +117,12 @@
             will-change: transform;
         }
 
+        /* Фикс редкого "пропадания" контента sticky header до скролла (iOS/Safari) */
+        header.repaint {
+            transform: translateZ(0.1px); /* на 1 кадр триггерим репейнт */
+            will-change: transform;
+        }
+
         /* =========================
            APP TITLE MARQUEE
            ========================= */
@@ -257,6 +263,26 @@
            TITLE helpers
            ========================= */
         #appTitleWrap { position: relative; overflow: hidden; }
+        /* Плавная замена заголовка */
+        #appTitle.fade-swap { animation: titleSwap .18s ease-out; }
+        @keyframes titleSwap { from { opacity:.25; transform: translateY(2px); } to { opacity:1; transform:none; } }
+
+        /* Скелетон-плейсхолдер для заголовка, когда имени ещё нет */
+        #appTitle.loading::after {
+            content:"";
+            display:inline-block;
+            vertical-align:middle;
+            width: 6ch;               /* ширина "заглушки" */
+            height: 0.9em;
+            margin-left: .4ch;
+            border-radius: 6px;
+            background: linear-gradient(90deg, rgba(148,163,184,.18), rgba(255,255,255,.4), rgba(148,163,184,.18));
+            animation: ttlSk 1.2s ease-in-out infinite;
+        }
+        @keyframes ttlSk { 0%{background-position:-150% 0} 100%{background-position:250% 0} }
+        .dark #appTitle.loading::after {
+            background: linear-gradient(90deg, rgba(71,85,105,.25), rgba(255,255,255,.15), rgba(71,85,105,.25));
+        }
     </style>
 </head>
 <body class="h-full bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100">
@@ -324,6 +350,7 @@
     const servicesCache=new Map(); // per group
     const serviceDetailsCache=new Map();
     const feedbacksCache=new Map();
+    const groupNameCache = new Map(); // groupId -> name
 
     // ============ Boot ============
     document.addEventListener('DOMContentLoaded', () => {
@@ -577,24 +604,24 @@
         await groupsLoading; return groupsCache;
     }
     function renderGroups(groups){
-        if (!groups?.length){
+        if(!groups?.length){
             screen().innerHTML = emptyState('Группы не найдены','Попробуйте позже.');
             return;
         }
-
-        // такая же сетка и отступы, как у услуг
         const wrapper = document.createElement('div');
         wrapper.className = 'grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
 
         groups.forEach(g => {
-            const gid   = getGroupId(g);
-            const raw   = getGroupName(g) || '';
-            const { label, emoji } = extractGroupLabelAndEmoji(raw); // твой «умный» парсер
+            const gid  = getGroupId(g);
+            const raw  = getGroupName(g) || '';
+            // запоминаем имя группы сразу, чтобы переходы были мгновенными
+            if (gid && raw) groupNameCache.set(String(gid), String(raw));
+
+            const { label, emoji } = extractGroupLabelAndEmoji ? extractGroupLabelAndEmoji(raw) : { label: raw, emoji: '' };
 
             const card = document.createElement('button');
             card.type = 'button';
             card.className = [
-                // те же визуальные классы, что у услуг
                 'svc-card grp-watermark group w-full text-left',
                 'rounded-2xl border border-slate-200 dark:border-slate-800',
                 'bg-white/95 dark:bg-slate-900/95',
@@ -602,8 +629,6 @@
                 'transition duration-150 ease-out',
                 'focus:outline-none focus:ring-2 focus:ring-brand'
             ].join(' ');
-
-            // эмодзи уедет в водяной знак через CSS
             card.setAttribute('data-emoji', emoji || '');
 
             card.innerHTML = `
@@ -685,13 +710,30 @@
     }
 
     async function showGroupScreen(groupId){
-        const groupName = await fetchGroupName(groupId);
-        setTitle(groupName);
+        // 1) мгновенно показываем кэшированное имя или плейсхолдер
+        const cached = groupNameCache.get(String(groupId));
+        if (cached) {
+            setTitleInstant(cached);
+        } else {
+            setTitleLoadingPlaceholder();
+        }
 
+        // 2) сразу показываем skeleton/лоадер контента
         screen().innerHTML = pageLoading('Загрузка услуг.');
+
+        // 3) параллельно подтягиваем свежее имя и аккуратно подменяем
+        resolveGroupName(groupId).then(name => {
+            if (name && name !== cached) setTitleInstant(name);
+        });
+
+        // 4) грузим список
         const services = await fetchServices(groupId);
         renderServices(services, groupId);
+
+        // 5) форсим корректный рендер шапки на мобильных (фикс iOS)
+        ensureHeaderVisible && ensureHeaderVisible();
     }
+
 
     async function fetchServices(groupId){
         if(servicesCache.has(groupId)) return servicesCache.get(groupId);
@@ -753,26 +795,32 @@
     }
 
     async function showServiceScreen(serviceId){
-        setTitle('Услуга');
+        setTitleInstant('Услуга');   // мгновенно, с лёгким кроссфейдом
+
+        const backBtn = document.getElementById('navBack');
+        if (backBtn) backBtn.onclick = () => history.back();
 
         screen().innerHTML = pageLoading('Загрузка услуги.');
+        ensureHeaderVisible && ensureHeaderVisible();
+
         let service = serviceDetailsCache.get(serviceId);
         if(!service){
             try{
-                const r=await fetch(`${apiBaseUrl}service_details/${serviceId}`, { method:'POST', headers:{'Content-Type':'application/json'} });
+                const r = await fetch(`${apiBaseUrl}service_details/${serviceId}`, { method:'POST', headers:{'Content-Type':'application/json'} });
                 if(!r.ok) throw new Error('Ошибка сервера');
-                service=await r.json();
+                service = await r.json();
                 serviceDetailsCache.set(serviceId, service);
             } catch(e){
                 screen().innerHTML = pageError('Не удалось загрузить данные услуги.');
                 console.error(e);
+                ensureHeaderVisible && ensureHeaderVisible();
                 return;
             }
         }
         renderServiceDetails(service);
+        ensureHeaderVisible && ensureHeaderVisible();
         fetchFeedbacks(serviceId);
     }
-
 
     function renderServiceDetails(service){
         const parts=[]; const title=getServiceTitle(service);
@@ -820,6 +868,33 @@
         }catch(e){ container.innerHTML = pageError('Не удалось загрузить отзывы.'); console.error(e); }
     }
 
+    function setTitleInstant(text){
+        const h1 = document.getElementById('appTitle');
+        const span = document.getElementById('appTitleText');
+        if (!h1 || !span) return;
+        h1.classList.remove('loading');
+        span.textContent = text || 'Услуги';
+        h1.classList.add('fade-swap');
+        // снять класс после кадра, чтобы анимация могла повторяться
+        requestAnimationFrame(()=> h1.classList.remove('fade-swap'));
+    }
+
+    function setTitleLoadingPlaceholder(){
+        const h1 = document.getElementById('appTitle');
+        const span = document.getElementById('appTitleText');
+        if(!h1 || !span) return;
+        span.textContent = '';         // скрываем текст
+        h1.classList.add('loading');   // рисуем "скелетон"
+    }
+
+    async function resolveGroupName(groupId){
+        const key = String(groupId);
+        if (groupNameCache.has(key)) return groupNameCache.get(key);
+        const name = await fetchGroupName(groupId); // твоя функция
+        if (name) groupNameCache.set(key, name);
+        return name || 'Группа';
+    }
+
     function showSearchScreen(q){
         setTitle('Поиск');
 
@@ -848,6 +923,8 @@
   `;
         screen().innerHTML = '';
         screen().appendChild(view);
+
+        ensureHeaderVisible()
 
         const input   = view.querySelector('#searchInput');
         const clear   = view.querySelector('#clearSearchBtn');
@@ -1004,7 +1081,6 @@
         };
     }
 
-
     async function fetchGroupName(groupId) {
         try {
             const r = await fetch(`${apiBaseUrl}group/${groupId}`, {
@@ -1013,11 +1089,36 @@
             });
             if (!r.ok) throw new Error('Bad response');
             const data = await r.json();
-            return data.name || 'Группа';
+            const name = data.name || 'Группа';
+            groupNameCache.set(String(groupId), name);
+            return name;
         } catch (e) {
             console.error(e);
-            return 'Группа';
+            return groupNameCache.get(String(groupId)) || 'Группа';
         }
+    }
+
+
+    function ensureHeaderVisible() {
+        // 1) сброс скролла вверх (без анимации)
+        try {
+            const sc = document.scrollingElement || document.documentElement;
+            if (sc) sc.scrollTop = 0;
+        } catch {}
+
+        // 2) форс-перерисовка sticky+backdrop (iOS/Safari)
+        const hdr = document.querySelector('header');
+        if (hdr) {
+            // шаг А: принудительный рефлоу
+            // eslint-disable-next-line no-unused-expressions
+            hdr.offsetHeight;
+            // шаг Б: кратковременный "пинок" трансформацией
+            hdr.classList.add('repaint');
+            requestAnimationFrame(() => hdr.classList.remove('repaint'));
+        }
+
+        // 3) пересчитать бегущую строку заголовка, если надо
+        try { refreshTitleMarquee(); } catch {}
     }
 
 
