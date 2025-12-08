@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru" class="h-full">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="format-detection" content="telephone=no">
+    <title>All services</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="assets/js/tailwind-config.js"></script>
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="h-full bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+<div id="app" class="min-h-full flex flex-col">
+    
+    <header class="sticky top-0 z-40 bg-white/85 dark:bg-slate-900/85 backdrop-blur border-b border-slate-200/80 dark:border-slate-800/80">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-3">
+            <button id="navBack"
+                    class="hidden inline-flex px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    aria-label="Назад">Назад</button>
+            <div id="appTitleWrap" class="flex-1 min-w-0">
+                <h1 id="appTitle" class="text-xl font-bold text-brand tracking-tight">
+                    <span id="appTitleText">Все услуги</span>
+                </h1>
+            </div>
+            <div class="ml-auto flex items-center gap-2">
+                <button id="openSearch" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" title="Поиск">🔍</button>
+                <button id="themeToggle" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Сменить тему"><span id="themeIcon">☀</span></button>
+            </div>
+        </div>
+    </header>
+
+    
+    <main id="screen" class="mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 py-4 flex-1"></main>
+
+    <div style="height: env(safe-area-inset-bottom);"></div>
+
+    <div id="maintenance-overlay" class="fixed inset-0 z-50 bg-white dark:bg-slate-900 hidden">
+        <div class="relative h-full flex flex-col">
+            <div class="w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200/80 dark:border-slate-800/80">
+                <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-3">
+                    <button class="hidden inline-flex px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700" aria-label="Назад">Назад</button>
+                    <div class="flex-1 min-w-0">
+                        <h1 class="text-xl font-bold text-brand tracking-tight">
+                            <span>Все услуги</span>
+                        </h1>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 flex items-start justify-center px-4 sm:px-6 lg:px-8 py-4">
+                <div class="w-full max-w-5xl space-y-6">
+
+                    <div id="maintenance-loading" class="min-h-[60vh] flex flex-col items-center justify-center text-center space-y-4">
+                        <div class="mx-auto h-14 w-14 rounded-full border-4 border-slate-200 border-t-brand animate-spin"></div>
+                        <div class="space-y-1">
+                            <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">Загрузка</h2>
+                            <p class="text-base text-slate-600 dark:text-slate-300">Проверяем доступность сервера и состояние сервисов.</p>
+                        </div>
+                    </div>
+
+                    <div id="maintenance-content" class="space-y-5 lg:space-y-0 lg:grid lg:grid-cols-[1.1fr_0.9fr] lg:items-start lg:gap-10 hidden">
+                        <div class="space-y-3 text-left">
+                            <div class="inline-flex items-center gap-2 text-brand font-semibold">
+                                <span class="flex h-2.5 w-2.5">
+                                    <span class="absolute inline-flex h-2.5 w-2.5 animate-ping rounded-full bg-brand/70 opacity-75"></span>
+                                    <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-brand"></span>
+                                </span>
+                                Технические работы
+                            </div>
+                            <div class="space-y-2">
+                                <h2 id="maintenance-title" class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
+                                    Сервисы сейчас недоступны
+                                </h2>
+                                <p id="maintenance-detail" class="text-lg text-slate-600 dark:text-slate-300 max-w-3xl leading-snug">
+                                    Мы выполняем обновление сервисов.
+                                </p>
+                                </div>
+                            <div class="flex flex-wrap items-center gap-3">
+                                <button id="maintenanceRetry" type="button" class="maintenance-btn inline-flex items-center gap-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-0">
+                                    <span aria-hidden="true">↻</span>
+                                    Попробовать снова
+                                </button>
+                                <span id="maintenance-updated" class="text-sm text-slate-500 dark:text-slate-400">Обновляем статус...</span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div class="flex items-start gap-3 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60 px-4 py-2.5">
+                                <div class="mt-1 h-2 w-2 rounded-full bg-brand"></div>
+                                <div class="space-y-1">
+                                    <div class="text-sm font-semibold text-slate-500 dark:text-slate-400">Что делаем</div>
+                                    <div id="maintenance-what" class="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">Обновляем сервисы, улучшаем стабильность и скорость</div>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60 px-4 py-2.5">
+                                <div class="mt-1 h-2 w-2 rounded-full bg-indigo-500"></div>
+                                <div class="space-y-1">
+                                    <div class="text-sm font-semibold text-slate-500 dark:text-slate-400">Когда вернёмся</div>
+                                    <div id="maintenance-when" class="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">Чуть позже — сообщим сразу после завершения</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="assets/js/maintenance.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
