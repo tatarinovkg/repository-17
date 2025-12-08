@@ -50,7 +50,7 @@
             const isActive = Boolean(data.active ?? data.maintenance ?? data.works ?? data.work ?? data.activeMaintenance);
             const message = data.message || data.detail || 'Мы выполняем обновление сервисов.';
             const what = data.what || 'Обновляем сервисы, улучшаем стабильность и скорость';
-            const when = data.when || data.eta || 'Чуть позже — сообщим сразу после завершения';
+            const when = data.when || data.eta || 'Чуть позже - сообщим сразу после завершения';
 
             whatEl.textContent = what;
             whenEl.textContent = when;
@@ -66,7 +66,7 @@
             }
         } catch (error) {
             titleEl.textContent = 'Нет ответа от сервера';
-            detailEl.textContent = 'Не удаётся связаться с сервером. Скорее всего он недоступен — пробуем восстановить соединение.';
+            detailEl.textContent = 'Не удаётся связаться с сервером. Скорее всего он недоступен - пробуем восстановить соединение.';
             whatEl.textContent = 'Проверяем подключение и перезапускаем сервисы';
             whenEl.textContent = 'Вернёмся, как только сервер ответит';
             setView('content');
