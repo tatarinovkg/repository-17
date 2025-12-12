@@ -1,5 +1,57 @@
 const tg = window.Telegram ? window.Telegram.WebApp : null;
     const apiBaseUrl = 'https://bot.ovimex72.ru/api/';
+    const MOCK_MODE = false; // переключить на true для офлайн-тестов
+    const mockData = {
+        groups: [
+            { id: 1, name: '💼 Корпоративные сервисы' },
+            { id: 2, name: '⚙️ Техническая поддержка' },
+            { id: 3, name: '🧾 Документы и заявки' },
+        ],
+        services: {
+            1: [
+                { id: 101, serviceName: 'VPN доступ', providerName: 'IT Security', shortDescription: 'Настройка удаленного доступа' },
+                { id: 102, serviceName: 'Почтовый ящик', providerName: 'IT Ops', shortDescription: 'Создание и настройка корпоративной почты' },
+            ],
+            2: [
+                { id: 201, serviceName: 'Срочная заявка', providerName: 'Служба поддержки', shortDescription: 'Высокий приоритет' },
+                { id: 202, serviceName: 'Плановая заявка', providerName: 'Служба поддержки', shortDescription: 'Стандартный приоритет' },
+            ],
+            3: [
+                { id: 301, serviceName: 'Справка о доходах', providerName: 'HR', shortDescription: 'Получить за 5 минут' },
+            ],
+        },
+        serviceDetails: {
+            101: { id: 101, serviceName: 'VPN доступ', contactPerson: 'Алексей', contacts: '+7 900 000-00-01', service: 'Шаги подключения:\n1) Подать заявку\n2) Установить клиент\n3) Подключиться' },
+            102: { id: 102, serviceName: 'Почтовый ящик', contactPerson: 'Светлана', contacts: '+7 900 000-00-02', service: 'Создадим корпоративный ящик, настроим подпись и права' },
+            201: { id: 201, serviceName: 'Срочная заявка', contactPerson: 'Дежурная смена', contacts: '+7 900 000-00-03', service: 'Заявки с высоким приоритетом. Реакция до 15 минут.' },
+            202: { id: 202, serviceName: 'Плановая заявка', contactPerson: 'Служба поддержки', contacts: '+7 900 000-00-04', service: 'Регулярные задачи. Реакция до 2 часов.' },
+            301: { id: 301, serviceName: 'Справка о доходах', contactPerson: 'HR', contacts: '+7 900 000-00-05', service: 'Автоматическая выдача справки в PDF' },
+        },
+        feedbacks: {
+            101: [
+                { usersName: 'Ирина', feedbackRating: 5, feedbackText: 'Подключили за 10 минут' },
+                { usersName: 'Павел', feedbackRating: 4, feedbackText: 'Все работает' },
+            ],
+        },
+        orgGroups: [
+            { id: 11, name: '🏥 Медицинские учреждения' },
+            { id: 12, name: '🏛 Муниципальные организации' },
+        ],
+        organisations: {
+            11: [
+                { id: 501, name: 'Клиника «Здоровье»', address: 'г. Тюмень, ул. Центральная 10', contacts: '+7 900 111-11-11' },
+                { id: 502, name: 'Городская больница №2', address: 'г. Тюмень, ул. Ленина 5', contacts: '+7 900 222-22-22' },
+            ],
+            12: [
+                { id: 601, name: 'МФЦ Тюмень', address: 'ул. Республики 50', contacts: '+7 900 333-33-33' },
+            ],
+        },
+        organisationDetails: {
+            501: { id: 501, group_id: 11, name: 'Клиника «Здоровье»', address: 'г. Тюмень, ул. Центральная 10', contacts: '+7 900 111-11-11' },
+            502: { id: 502, group_id: 11, name: 'Городская больница №2', address: 'г. Тюмень, ул. Ленина 5', contacts: '+7 900 222-22-22' },
+            601: { id: 601, group_id: 12, name: 'МФЦ Тюмень', address: 'ул. Республики 50', contacts: '+7 900 333-33-33' },
+        }
+    };
 
     function initTelegramApp(){
         if (!tg) return;
@@ -33,12 +85,20 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
     const feedbacksCache=new Map();
     const groupNameCache = new Map(); // groupId -> name
 
+    let orgGroupsCache=null, orgGroupsLoading=null;
+    const orgGroupNameCache = new Map(); // orgGroupId -> name
+    const orgListsCache = new Map(); // orgGroupId -> list of organisations
+    const orgDetailsCache = new Map(); // organisationId -> details
+
+    let deepLinkForceHome = false;
+
     document.addEventListener('DOMContentLoaded', () => {
         fastThemeBoot(); initTelegramApp();
         bindHeader();
         initTitleMarquee();
         window.addEventListener('hashchange', routeFromHash);
-        routeFromEntry();
+        showInitialLoading();
+        waitMaintenanceThenStart();
     });
     function fastThemeBoot(){
         try{
@@ -58,6 +118,35 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         document.getElementById('themeToggle').onclick = ()=> { toggleTheme(); haptic('impact'); };
         const backBtn = document.getElementById('navBack');
         if (backBtn) backBtn.onclick = ()=> goBackSafe();
+    }
+
+    function showInitialLoading(){
+        setTitle('Все услуги и организации');
+        setHeaderActionsForRoot(false);
+        setBackVisible(false);
+        screen().innerHTML = pageLoading('Загружаем данные...');
+    }
+
+    function waitMaintenanceThenStart(){
+        const getState = () => window.maintenanceState?.status || 'pending';
+
+        const startOnce = (()=>{ let done=false; return ()=>{ 
+            if(done) return; 
+            if (getState() !== 'ok') return;
+            done=true; 
+            setTitle('Все услуги'); 
+            routeFromEntry(); 
+        }; })();
+
+        const ready = window.maintenanceReady;
+        if (ready && typeof ready.then === 'function') {
+            ready.then(()=> { startOnce(); })
+                 .catch(()=> setTitle('Все услуги и организации'));
+        }
+
+        window.addEventListener('maintenance:ok', () => { startOnce(); });
+        window.addEventListener('maintenance:error', () => { setTitle('Все услуги и организации'); });
+        window.addEventListener('maintenance:active', () => { setTitle('Все услуги и организации'); });
     }
 
     function updateThemeIcon(){
@@ -80,6 +169,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         if (sid && /^\d+$/.test(sid)) {
             setHeaderActionsForRoot(false);
             setBackVisible(true);
+            deepLinkForceHome = true;
             showServiceScreen(Number(sid));
             return;
         }
@@ -89,6 +179,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
             if (m) {
                 setHeaderActionsForRoot(false);
                 setBackVisible(true);
+                deepLinkForceHome = true;
                 showServiceScreen(Number(m[1]));
                 return;
             }
@@ -102,9 +193,11 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         const view = p.get('view') || 'groups';
         const groupId = p.get('group') || null;
         const serviceId = p.get('service') || null;
+        const orgGroupId = p.get('orgGroup') || null;
+        const orgId = p.get('org') || null;
         const q = p.get('q') || '';
 
-        const isRoot = (view === 'groups' && !groupId && !serviceId && !q);
+        const isRoot = ((view === 'groups' || view === 'org-groups') && !groupId && !serviceId && !orgGroupId && !orgId && !q);
 
         setHeaderActionsForRoot(isRoot);
 
@@ -113,6 +206,9 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         if (view === 'search') { showSearchScreen(q); return; }
         if (serviceId)         { showServiceScreen(serviceId); return; }
         if (groupId)           { showGroupScreen(groupId); return; }
+        if (orgId)             { showOrganisationScreen(orgId, orgGroupId); return; }
+        if (orgGroupId)        { showOrgGroupScreen(orgGroupId); return; }
+        if (view === 'org-groups') { showOrgGroupsScreen(); return; }
         showGroupsScreen();
     }
 
@@ -123,8 +219,10 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         const view = p.get('view') || 'groups';
         const group = p.get('group');
         const service = p.get('service');
+        const orgGroup = p.get('orgGroup');
+        const org = p.get('org');
         const q = p.get('q');
-        return (view === 'groups' && !group && !service && !q);
+        return ((view === 'groups' || view === 'org-groups') && !group && !service && !orgGroup && !org && !q);
     }
 
 
@@ -166,7 +264,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
     }
 
     const TITLE_SPEED = 40;       // пикселей в секунду
-    const TITLE_PAUSE = 1;        // секунда паузы на краях
+    const TITLE_PAUSE = 1.2;      // чуть больше пауза на краях
 
     function refreshTitleMarquee(){
         const wrap = document.getElementById('appTitleWrap');
@@ -249,28 +347,35 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
 
 
     async function showGroupsScreen(){
-        setTitle('Услуги');                 // updateNavForRoute уже вызван роутером
+        setTitle('Все услуги');                 // updateNavForRoute уже вызван роутером
+        deepLinkForceHome = false;
         if(!groupsCache){
-            screen().innerHTML = pageLoading('Загрузка групп...');
+            mountWithMode(pageLoading('Загружаем группы...'), 'services', true);
             await fetchGroups();
         }
+        if(!groupsCache) return;
         renderGroups(groupsCache||[]);
+        ensureHeaderVisible && ensureHeaderVisible();
     }
 
     async function fetchGroups(){
+        if (MOCK_MODE) {
+            groupsCache = mockData.groups;
+            return groupsCache;
+        }
         if(groupsCache || groupsLoading) { await groupsLoading; return groupsCache; }
         groupsLoading = (async()=>{
             try{
                 const r = await fetch(apiBaseUrl + 'groups', { method:'POST', headers:{'Content-Type':'application/json'} });
                 if(!r.ok) throw new Error('Bad response'); groupsCache = await r.json();
-            }catch(e){ screen().innerHTML = pageError('Не удалось загрузить группы.'); console.error(e); }
+            }catch(e){ mountWithMode(pageError('Не удалось загрузить группы.'), 'services'); console.error(e); return null; }
             finally{ groupsLoading=null; }
         })();
         await groupsLoading; return groupsCache;
     }
     function renderGroups(groups){
         if(!groups?.length){
-            screen().innerHTML = emptyState('Группы не найдены','Попробуйте позже.');
+            mountWithMode(emptyState('Группы не найдены','Попробуйте позже.'), 'services', true);
             return;
         }
         const wrapper = document.createElement('div');
@@ -316,8 +421,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
             wrapper.appendChild(card);
         });
 
-        screen().innerHTML = '';
-        screen().appendChild(wrapper);
+        mountWithMode(wrapper, 'services', true);
     }
 
     function extractGroupLabelAndEmoji(input){
@@ -328,13 +432,13 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         const ZWJ = '\\u200D';                                         // zero-width joiner
         const EMOJI_CORE =
             '(?:' +
-            '[\\u{1F1E6}-\\u{1F1FF}]{2}' +                // флаги (две регион. буквы)
+            '[\\u{1F1E6}-\\u{1F1FF}]{2}' +                // флаги
             '|' +
             '[\\u{1F600}-\\u{1F64F}]' +                   // смайлики
             '|' +
-            '[\\u{1F300}-\\u{1F5FF}]' +                   // символы и пиктограммы
+            '[\\u{1F300}-\\u{1F5FF}]' +                   // символы/пиктограммы
             '|' +
-            '[\\u{1F680}-\\u{1F6FF}]' +                   // транспорт/карты
+            '[\\u{1F680}-\\u{1F6FF}]' +                   // транспорт
             '|' +
             '[\\u{2600}-\\u{26FF}]' +                     // разное
             '|' +
@@ -346,26 +450,13 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
             ')';
 
         const EMOJI_SEQ = `${EMOJI_CORE}${VS16}${EMOJI_COMPONENT}(?:${ZWJ}${EMOJI_CORE}${VS16}${EMOJI_COMPONENT})*`;
+        const emojiRe = new RegExp(EMOJI_SEQ, 'gu');
 
-        const endRe = new RegExp(`^(.*?)(?:\\s*(${EMOJI_SEQ}(?:\\s*${EMOJI_SEQ})*))\\s*$`, 'u');
-        const mEnd = s.match(endRe);
-        if (mEnd && mEnd[2]) {
-            const base = (mEnd[1] || '').trim().replace(/[,\s]+$/, '');
-            const emo  = (mEnd[2] || '').trim();
-            return { label: base || s, emoji: emo };
-        }
+        const emojis = Array.from(s.matchAll(emojiRe));
+        const emoji = emojis.length ? emojis[0][0] : '';
+        const label = s.replace(emojiRe, '').trim().replace(/[,\s]+$/, '') || s;
 
-        const anyRe = new RegExp(`${EMOJI_SEQ}`, 'gu');
-        let lastEmoji = '';
-        let match;
-        while ((match = anyRe.exec(s)) !== null) lastEmoji = match[0];
-
-        if (lastEmoji) {
-            const cleaned = s.replace(new RegExp(`${lastEmoji}\\s*$`, 'u'), '').trim().replace(/[,\s]+$/,'');
-            return { label: cleaned || s, emoji: lastEmoji };
-        }
-
-        return { label: s, emoji: '' };
+        return { label, emoji };
     }
 
     async function showGroupScreen(groupId){
@@ -376,13 +467,14 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
             setTitleLoadingPlaceholder();
         }
 
-        screen().innerHTML = pageLoading('Загрузка услуг.');
+        mountWithMode(pageLoading('Загрузка услуг...'), 'services', false);
 
         resolveGroupName(groupId).then(name => {
             if (name && name !== cached) setTitleInstant(name);
         });
 
         const services = await fetchServices(groupId);
+        if (services === null) return;
         renderServices(services, groupId);
 
         ensureHeaderVisible && ensureHeaderVisible();
@@ -391,25 +483,31 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
 
     async function fetchServices(groupId){
         if(servicesCache.has(groupId)) return servicesCache.get(groupId);
+        if (MOCK_MODE) {
+            const data = mockData.services[groupId] || mockData.services[Number(groupId)] || [];
+            servicesCache.set(groupId, data);
+            return data;
+        }
         try{
             const r = await fetch(`${apiBaseUrl}services/${groupId}`, { method:'POST', headers:{'Content-Type':'application/json'} });
             if(!r.ok) throw new Error('Ошибка при загрузке услуг');
             const data = await r.json(); servicesCache.set(groupId, data); return data;
-        }catch(e){ screen().innerHTML = pageError('Ошибка при загрузке услуг.'); console.error(e); return []; }
+        }catch(e){ mountWithMode(pageError('Ошибка при загрузке услуг.'), 'services'); console.error(e); return null; }
     }
 
     function renderServices(services, groupId){
         const items = Array.isArray(services) ? services : (services?.items || []);
-        if (!items.length) { screen().innerHTML = emptyState('В этой группе нет услуг','Попробуйте другую группу.'); return; }
+        if (!items.length) { mountWithMode(emptyState('В этой группе нет услуг','Попробуйте другую группу.'), 'services', false); return; }
 
         const grid = document.createElement('div');
         grid.className = 'grid gap-3 grid-cols-1 md:grid-cols-2 md:gap-4 lg:grid-cols-3';
 
         items.forEach((s) => {
             const sid = getServiceId(s);
-            const title = getServiceTitle(s);
+            const rawTitle = getServiceTitle(s);
+            const { label: title, emoji: titleEmoji } = extractGroupLabelAndEmoji(rawTitle);
             const prov = getProviderName(s);
-            const mark = (title || 'U').trim().charAt(0).toUpperCase();
+            const mark = (titleEmoji || '').trim() || (title || 'U').trim().charAt(0).toUpperCase();
 
             const btn = document.createElement('button');
             btn.type = 'button';
@@ -445,27 +543,54 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
             grid.appendChild(btn);
         });
 
-        screen().innerHTML = ''; screen().appendChild(grid);
+        mountWithMode(grid, 'services', false);
     }
 
     async function showServiceScreen(serviceId){
-        setTitleInstant('Услуга');   // мгновенно, с лёгким кроссфейдом
+        setTitleInstant('Услуга');   // временно, сменим после загрузки
 
         const backBtn = document.getElementById('navBack');
-        if (backBtn) backBtn.onclick = () => history.back();
+        if (backBtn) {
+            backBtn.textContent = deepLinkForceHome ? 'В главное меню' : backBtn.textContent || '';
+            backBtn.onclick = () => {
+                if (deepLinkForceHome) {
+                    deepLinkForceHome = false;
+                    const base = (location.origin + location.pathname.replace(/index\.html$/i, '')).replace(/\/+$/, '/') ;
+                    location.href = base;
+                } else {
+                    history.back();
+                }
+            };
+        }
 
-        screen().innerHTML = pageLoading('Загрузка услуги.');
+        mountWithMode(pageLoading('Загрузка услуги...'), 'services', false);
         ensureHeaderVisible && ensureHeaderVisible();
 
         let service = serviceDetailsCache.get(serviceId);
+        if (MOCK_MODE && !service) {
+            service = mockData.serviceDetails[serviceId] || mockData.serviceDetails[Number(serviceId)];
+            if (service) serviceDetailsCache.set(serviceId, service);
+        }
         if(!service){
             try{
                 const r = await fetch(`${apiBaseUrl}service_details/${serviceId}`, { method:'POST', headers:{'Content-Type':'application/json'} });
+                if (r.status === 404) {
+                    setTitleInstant('Услуга');
+                    mountWithMode(pageError('Услуга не найдена.'), 'services', false);
+                    ensureHeaderVisible && ensureHeaderVisible();
+                    return;
+                }
                 if(!r.ok) throw new Error('Ошибка сервера');
                 service = await r.json();
+                if (!service || service.error) {
+                    setTitleInstant('Услуга');
+                    mountWithMode(pageError('Услуга не найдена.'), 'services', false);
+                    ensureHeaderVisible && ensureHeaderVisible();
+                    return;
+                }
                 serviceDetailsCache.set(serviceId, service);
             } catch(e){
-                screen().innerHTML = pageError('Не удалось загрузить данные услуги.');
+                mountWithMode(pageError('Не удалось загрузить данные услуги.'), 'services');
                 console.error(e);
                 ensureHeaderVisible && ensureHeaderVisible();
                 return;
@@ -477,12 +602,14 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
     }
 
     function renderServiceDetails(service){
-        const parts=[]; const title=getServiceTitle(service);
-        parts.push(`<h2 class="text-2xl font-bold text-brand mb-2 break-anywhere">${escapeHTML(title)}</h2>`);
+        const parts=[];
+        const { label: cleanTitle } = extractGroupLabelAndEmoji(getServiceTitle(service));
+        setTitleInstant('Услуга');
+        parts.push(`<h2 class="text-2xl font-bold text-brand mb-2 break-anywhere">${escapeHTML(cleanTitle)}</h2>`);
         if (service.shortDescription) {
             const sd = String(service.shortDescription).trim();
-            const title = getServiceTitle(service).trim();
-            if (sd && sd.toLowerCase() !== title.toLowerCase()) {
+            const ttitle = getServiceTitle(service).trim();
+            if (sd && sd.toLowerCase() !== ttitle.toLowerCase()) {
                 parts.push(
                     `<div class="rounded-lg bg-gradient-to-r from-[var(--sd-from)] to-[var(--sd-to)] text-[var(--sd-fg)] px-4 py-3 mb-4">
         ${escapeHTML(sd)}
@@ -496,22 +623,31 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
       <div><p class="font-medium">👤 Контактное лицо</p><div class="text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-anywhere">${escapeHTML(service.contactPerson||'Не указано')}</div></div>
       <div><p class="font-medium">📞 Контакты</p><div class="text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-anywhere">${formatPhoneNumbers((service.contacts||'').replace(/\n/g,'\n'))}</div></div>
     </div>`);
-        if(service.links || service.url){ const block=[service.links,service.url].filter(Boolean).join('\n'); parts.push(`<div class="mt-3"><p class="font-medium">🔗 Ссылки</p><div class="text-sm text-brand-700 dark:text-brand-400 whitespace-pre-wrap break-anywhere">${linkify(block)}</div></div>`); }
         parts.push(`<div id="feedbacks-container" class="mt-6"></div>`);
-        screen().innerHTML = `<div class="space-y-2 animate-in">${parts.join('')}</div>`;
+        mountWithMode(`<div class="space-y-2 animate-in">${parts.join('')}</div>`, 'services', false);
     }
     async function fetchFeedbacks(serviceId){
         const container=document.getElementById('feedbacks-container'); if(!container) return; container.innerHTML = inlineSpinner('Загружаем отзывы...');
         let feedbacks;
         try{
-            if(feedbacksCache.has(serviceId)) feedbacks=feedbacksCache.get(serviceId);
-            else { const r=await fetch(apiBaseUrl+'getFeedbacks/'+encodeURIComponent(serviceId), { method:'POST', headers:{'Content-Type':'application/json'} }); if(!r.ok) throw new Error('Bad response'); feedbacks=await r.json(); feedbacksCache.set(serviceId, feedbacks); }
+            if (MOCK_MODE) {
+                feedbacks = mockData.feedbacks[serviceId] || mockData.feedbacks[Number(serviceId)] || [];
+                feedbacksCache.set(serviceId, feedbacks);
+            } else {
+                if(feedbacksCache.has(serviceId)) feedbacks=feedbacksCache.get(serviceId);
+                else { const r=await fetch(apiBaseUrl+'getFeedbacks/'+encodeURIComponent(serviceId), { method:'POST', headers:{'Content-Type':'application/json'} }); if(!r.ok) throw new Error('Bad response'); feedbacks=await r.json(); feedbacksCache.set(serviceId, feedbacks); }
+            }
             if(feedbacks.message){ container.innerHTML = `<div class="rounded-lg border border-slate-200 dark:border-slate-800 p-4 text-sm">${escapeHTML(feedbacks.message)}</div>`; }
             else{
-                const avg = calculateAverageRating(feedbacks);
+                const items = Array.isArray(feedbacks) ? feedbacks : [];
+                if (!items.length) {
+                    container.innerHTML = `<div class="rounded-lg border border-slate-200 dark:border-slate-800 p-4 text-sm text-slate-600 dark:text-slate-300">Нет отзывов для данной услуги.</div>`;
+                    return;
+                }
+                const avg = calculateAverageRating(items);
                 const list=document.createElement('div'); list.className='space-y-3';
                 const header=`<div class=\"mb-2 text-sm\"><span class=\"font-medium\">Средняя оценка: ${avg}⭐️</span></div>`;
-                feedbacks.forEach(f=>{
+                items.forEach(f=>{
                     const item=document.createElement('div'); item.className='rounded-lg border border-slate-200 dark:border-slate-800 p-3 animate-in';
                     item.innerHTML=`<div class="flex items-center justify-between text-sm"><strong>${escapeHTML(f.usersName||'Аноним')}</strong><span class="text-slate-500">Оценка: ${escapeHTML(String(f.feedbackRating||'—'))}</span></div>
                            <p class="mt-2 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-anywhere">${escapeHTML(f.feedbackText||'')}</p>`;
@@ -520,6 +656,236 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
                 container.innerHTML = header; container.appendChild(list);
             }
         }catch(e){ container.innerHTML = pageError('Не удалось загрузить отзывы.'); console.error(e); }
+    }
+
+    // --- Организации ---
+
+    async function showOrgGroupsScreen(){
+        setTitle('Все организации');
+        if(!orgGroupsCache){
+            mountWithMode(pageLoading('Загружаем организации...'), 'orgs', true);
+            await fetchOrgGroups();
+        }
+        if(!orgGroupsCache) return;
+        renderOrgGroups(orgGroupsCache || []);
+        ensureHeaderVisible && ensureHeaderVisible();
+    }
+
+    async function fetchOrgGroups(){
+        if (MOCK_MODE) {
+            orgGroupsCache = mockData.orgGroups;
+            return orgGroupsCache;
+        }
+        if(orgGroupsCache || orgGroupsLoading) { await orgGroupsLoading; return orgGroupsCache; }
+        orgGroupsLoading = (async()=>{
+            try{
+                const r = await fetch(apiBaseUrl + 'get_organisation_groups', { method:'POST', headers:{'Content-Type':'application/json'} });
+                if(!r.ok) throw new Error('Bad response');
+                orgGroupsCache = await r.json();
+            } catch(e){
+                console.error(e);
+                mountWithMode(pageError('Не удалось загрузить группы организаций.'), 'orgs');
+                return null;
+            } finally {
+                orgGroupsLoading = null;
+            }
+        })();
+        await orgGroupsLoading; return orgGroupsCache;
+    }
+
+    function renderOrgGroups(groups){
+        if(!groups?.length){
+            mountWithMode(emptyState('Нет групп организаций','Попробуйте обновить позже.'), 'orgs', true);
+            return;
+        }
+        const wrapper = document.createElement('div');
+        wrapper.className = 'grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
+
+        groups.forEach(g => {
+            const gid  = getOrgGroupId(g);
+            const raw  = getOrgGroupName(g) || '';
+            if (gid && raw) orgGroupNameCache.set(String(gid), String(raw));
+
+            const { label, emoji } = extractGroupLabelAndEmoji ? extractGroupLabelAndEmoji(raw) : { label: raw, emoji: '' };
+
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = [
+                'svc-card grp-watermark group w-full text-left',
+                'rounded-2xl border border-slate-200 dark:border-slate-800',
+                'bg-white/95 dark:bg-slate-900/95',
+                'px-4 py-4 md:px-4 md:py-4',
+                'transition duration-150 ease-out',
+                'focus:outline-none focus:ring-2 focus:ring-brand'
+            ].join(' ');
+            card.setAttribute('data-emoji', emoji || '');
+
+            card.innerHTML = `
+      <div class="flex items-center gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="text-base md:text-[1.05rem] font-semibold leading-snug text-brand break-anywhere">
+            ${escapeHTML(label)}
+          </div>
+        </div>
+        <div class="row-chevron svc-chevron shrink-0 opacity-60 transition-transform">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               class="text-slate-400 dark:text-slate-400">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </div>
+      </div>
+    `;
+
+            card.onclick = () => { updateHash({ view:'org-group', orgGroup: gid }); haptic('impact'); };
+            wrapper.appendChild(card);
+        });
+
+        mountWithMode(wrapper, 'orgs', true);
+    }
+
+    async function showOrgGroupScreen(groupId){
+        const cached = orgGroupNameCache.get(String(groupId));
+        if (cached) {
+            setTitleInstant(cached);
+        } else {
+            setTitleLoadingPlaceholder();
+        }
+
+        mountWithMode(pageLoading('Загружаем организации...'), 'orgs', false);
+
+        resolveOrgGroupName(groupId).then(name => {
+            if (name && name !== cached) setTitleInstant(name);
+        });
+
+        const organisations = await fetchOrganisations(groupId);
+        if (organisations === null) return;
+        renderOrganisations(organisations, groupId);
+
+        ensureHeaderVisible && ensureHeaderVisible();
+    }
+
+    async function fetchOrganisations(groupId){
+        if(orgListsCache.has(groupId)) return orgListsCache.get(groupId);
+        if (MOCK_MODE) {
+            const data = mockData.organisations[groupId] || mockData.organisations[Number(groupId)] || [];
+            orgListsCache.set(groupId, data);
+            return data;
+        }
+        try{
+            const r = await fetch(`${apiBaseUrl}get_organisations`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ group_id: Number(groupId) || groupId }) });
+            if(!r.ok) throw new Error('Ошибка при загрузке организаций');
+            const data = await r.json(); orgListsCache.set(groupId, data); return data;
+        }catch(e){
+            mountWithMode(pageError('Не удалось загрузить организации.'), 'orgs');
+            console.error(e);
+            return null;
+        }
+    }
+
+    function renderOrganisations(list, groupId){
+        const items = Array.isArray(list) ? list : (list?.items || []);
+        if (!items.length) { mountWithMode(emptyState('Организаций пока нет','Попробуйте выбрать другую группу.'), 'orgs', false); return; }
+
+        const grid = document.createElement('div');
+        grid.className = 'grid gap-3 grid-cols-1 md:grid-cols-2 md:gap-4 lg:grid-cols-3';
+
+        items.forEach((org) => {
+            const oid = getOrganisationId(org);
+            const { label: name, emoji: markEmoji } = extractGroupLabelAndEmoji(getOrganisationName(org));
+            const address = getOrganisationAddress(org);
+            const mark = markEmoji || (name || 'O').trim().charAt(0).toUpperCase();
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = [
+                'svc-card svc-watermark group w-full text-left',
+                'rounded-2xl border border-slate-200 dark:border-slate-800',
+                'bg-white/95 dark:bg-slate-900/95',
+                'px-4 py-4 md:px-4 md:py-4',
+                'transition duration-150 ease-out',
+                'focus:outline-none focus:ring-2 focus:ring-brand'
+            ].join(' ');
+            btn.setAttribute('data-mark', mark);
+
+            btn.innerHTML = `
+      <div class="flex items-center gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="text-base md:text-[1.05rem] font-semibold leading-snug text-brand break-anywhere">
+            ${escapeHTML(name)}
+          </div>
+          ${address ? `<div class="mt-0.5 text-[13.5px] md:text-sm svc-subtle break-anywhere">${escapeHTML(address)}</div>` : ''}
+        </div>
+        <div class="svc-chevron shrink-0 opacity-60 transition-transform">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               class="text-slate-400 dark:text-slate-400">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </div>
+      </div>
+    `;
+
+            btn.onclick = () => { updateHash({ view:'org', org: oid, orgGroup: groupId }); haptic('impact'); };
+            grid.appendChild(btn);
+        });
+
+        mountWithMode(grid, 'orgs', false);
+    }
+
+    async function showOrganisationScreen(orgId, groupId){
+        setTitleInstant('Организация');
+
+        const backBtn = document.getElementById('navBack');
+        if (backBtn) backBtn.onclick = () => history.back();
+
+        mountWithMode(pageLoading('Загружаем данные организации...'), 'orgs');
+        ensureHeaderVisible && ensureHeaderVisible();
+
+        let organisation = orgDetailsCache.get(orgId);
+        if (MOCK_MODE && !organisation) {
+            organisation = mockData.organisationDetails[orgId] || mockData.organisationDetails[Number(orgId)];
+            if (organisation) orgDetailsCache.set(orgId, organisation);
+        }
+        if(!organisation){
+            try{
+                const r = await fetch(`${apiBaseUrl}get_organisation`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ organisation_id: Number(orgId) || orgId }) });
+                if(!r.ok) throw new Error('Ошибка сервера');
+                organisation = await r.json();
+                orgDetailsCache.set(orgId, organisation);
+            } catch(e){
+                mountWithMode(pageError('Не удалось загрузить данные организации.'), 'orgs');
+                console.error(e);
+                ensureHeaderVisible && ensureHeaderVisible();
+                return;
+            }
+        }
+        renderOrganisationDetails(organisation, groupId);
+        ensureHeaderVisible && ensureHeaderVisible();
+    }
+
+    function renderOrganisationDetails(org, groupId){
+        const { label: name } = extractGroupLabelAndEmoji(getOrganisationName(org));
+        setTitleInstant('Организация');
+
+        const address = getOrganisationAddress(org);
+        const contactsRaw = (org.contacts ?? org.contact ?? org.phone ?? org.phones ?? '').toString();
+        const contacts = contactsRaw.trim() ? formatPhoneNumbers(contactsRaw.replace(/\r?\n/g,'\n')) : 'Не указаны';
+
+        const blocks = [];
+        blocks.push(`<h2 class="text-2xl font-bold text-brand mb-2 break-anywhere">${escapeHTML(name)}</h2>`);
+        blocks.push(`<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <p class="font-medium mb-1">📍 Адрес</p>
+        <div class="text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-anywhere">${address ? escapeHTML(address) : 'Не указан'}</div>
+      </div>
+      <div>
+        <p class="font-medium mb-1">☎️ Контакты</p>
+        <div class="text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-anywhere">${contacts}</div>
+      </div>
+    </div>`);
+
+        mountWithMode(`<div class="space-y-3 animate-in">${blocks.join('')}</div>`, 'orgs', false);
     }
 
     function setTitleInstant(text){
@@ -543,9 +909,33 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
     async function resolveGroupName(groupId){
         const key = String(groupId);
         if (groupNameCache.has(key)) return groupNameCache.get(key);
+        if (MOCK_MODE) {
+            const found = (mockData.groups || []).find(g => String(getGroupId(g)) === key);
+            const name = found ? getGroupName(found) : null;
+            if (name) groupNameCache.set(key, name);
+            return name || 'Группа';
+        }
         const name = await fetchGroupName(groupId); // твоя функция
         if (name) groupNameCache.set(key, name);
         return name || 'Группа';
+    }
+
+    async function resolveOrgGroupName(groupId){
+        const key = String(groupId);
+        if (orgGroupNameCache.has(key)) return orgGroupNameCache.get(key);
+
+        if (MOCK_MODE) {
+            const foundMock = (mockData.orgGroups || []).find(g => String(getOrgGroupId(g)) === key);
+            const nameMock = foundMock ? getOrgGroupName(foundMock) : null;
+            if (nameMock) orgGroupNameCache.set(key, nameMock);
+            return nameMock || 'Группа организаций';
+        }
+
+        await fetchOrgGroups();
+        const found = (orgGroupsCache || []).find(g => String(getOrgGroupId(g)) === key);
+        const name = found ? getOrgGroupName(found) : null;
+        if (name) orgGroupNameCache.set(key, name);
+        return name || 'Группа организаций';
     }
 
     function showSearchScreen(q){
@@ -557,7 +947,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
     <div class="sticky top-14 pt-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur z-10">
       <div class="relative">
         <input id="searchInput" type="text" inputmode="search" autocomplete="off" spellcheck="false"
-               placeholder="Найти услугу..."
+               placeholder="Найти среди услуг и организаций..."
                class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-800 pl-11 pr-14 py-3
                       focus:outline-none focus:ring-2 focus:ring-brand text-base shadow transition" />
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 select-none">🔎</span>
@@ -571,7 +961,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         </button>
       </div>
     </div>
-    <div id="searchState" class="text-center text-slate-500 py-6">Введите запрос для поиска</div>
+    <div id="searchState" class="text-center text-slate-500 py-6">Введите запрос для поиска по услугам и организациям</div>
     <div id="results" class="space-y-2"></div>
   `;
         screen().innerHTML = '';
@@ -609,7 +999,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
             updateClearVisibility();
             updateHash({ q: '' }, true);
             results.innerHTML = '';
-            state.textContent = 'Введите запрос для поиска';
+            state.textContent = 'Введите запрос для поиска по услугам и организациям';
             input.focus();
         };
 
@@ -637,12 +1027,28 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
 
     let searchAbort=null;
     function doSearch(query, stateEl, listEl){
-        if(!query){ listEl.innerHTML=''; stateEl.textContent='Введите запрос для поиска'; return; }
+        if(!query){ listEl.innerHTML=''; stateEl.textContent='Введите запрос для поиска по услугам и организациям'; return; }
         stateEl.innerHTML = inlineSpinner('Ищем...'); listEl.innerHTML='';
         if(searchAbort) searchAbort.abort(); searchAbort = new AbortController();
         stateEl.classList.remove('hidden');
         stateEl.innerHTML = inlineSpinner('Ищем...');
         listEl.innerHTML = '';
+        if (MOCK_MODE) {
+            const svc = Object.values(mockData.services || {}).flat().map(item => ({ ...item, type:'service' }));
+            const orgs = [];
+            Object.entries(mockData.organisations || {}).forEach(([gid, list])=>{
+                list.forEach(o=> orgs.push({ ...o, groupId: gid, type:'organisation' }));
+            });
+            const all = [...svc, ...orgs];
+            const ql = query.toLowerCase();
+            const filtered = all.filter(item => {
+                const title = (item.serviceName || item.shortDescription || item.name || '').toLowerCase();
+                const prov = (item.providerName || item.contactPerson || '').toLowerCase();
+                return title.includes(ql) || prov.includes(ql);
+            });
+            renderSearchResults(filtered, stateEl, listEl);
+            return;
+        }
         fetch(`${apiBaseUrl}search_services?query=${encodeURIComponent(query)}`, { signal: searchAbort.signal })
             .then(r=>r.json())
             .then(items=> renderSearchResults(items||[], stateEl, listEl))
@@ -665,13 +1071,26 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         const frag = document.createDocumentFragment();
 
         items.forEach((item) => {
-            const sid   = item.servicesID ?? item.serviceId ?? item.id;
-            const gid   = item.groupId   ?? item.groupID   ?? item.GroupID;
-            const title = item.text || item.serviceName || 'Услуга';
-            const prov  = item.providerName || '';
-            const gnameRaw = item.groupName || '';
+            const inferredType = (item.type || item.kind || '').toString().toLowerCase();
+            const hasOrgMarker = (item.organisation_id ?? item.organisationId ?? item.organization_id ?? item.organizationId);
+            const type = inferredType === 'organisation' || inferredType === 'org' || hasOrgMarker ? 'organisation' : 'service';
 
+            const sid   = item.servicesID ?? item.serviceId ?? (type === 'service' ? item.id : null);
+            const oid   = item.organisation_id ?? item.organisationId ?? item.organization_id ?? item.organizationId ?? (type === 'organisation' ? item.id : null);
+            const gid   = item.groupId   ?? item.groupID   ?? item.GroupID ?? item.group_id;
+
+            const rawTitle = type === 'organisation'
+                ? (getOrganisationName(item) || item.text || 'Организация')
+                : (item.text || item.serviceName || 'Услуга');
+            const { label: title, emoji: titleEmoji } = extractGroupLabelAndEmoji(rawTitle);
+
+            const provOrAddr = type === 'organisation'
+                ? getOrganisationAddress(item)
+                : (item.providerName || item.contactPerson || '');
+
+            const gnameRaw = item.groupName || '';
             const { label: gnameClean, emoji: groupEmoji } = extractGroupLabelAndEmoji(gnameRaw);
+            const watermark = titleEmoji || groupEmoji || (title || '').trim().charAt(0).toUpperCase();
 
             const row = document.createElement('button');
             row.type = 'button';
@@ -681,15 +1100,20 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
                 'p-3 bg-white dark:bg-slate-900',
                 'transition'
             ].join(' ');
-            row.setAttribute('data-emoji', groupEmoji || '');
+            if (watermark) row.setAttribute('data-emoji', watermark); else row.removeAttribute('data-emoji');
+
+            const badge = type === 'organisation'
+                ? '<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">Организация</span>'
+                : '<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">Услуга</span>';
 
             row.innerHTML = `
       <div class="flex items-center gap-3">
         <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap mb-0.5">${badge}</div>
           <div class="font-semibold text-brand text-base leading-tight break-anywhere">
             ${escapeHTML(title)}
           </div>
-          ${prov ? `<div class="text-slate-600 dark:text-slate-400 text-sm mt-0.5 break-anywhere">${escapeHTML(prov)}</div>` : ''}
+          ${provOrAddr ? `<div class="text-slate-600 dark:text-slate-400 text-sm mt-0.5 break-anywhere">${escapeHTML(provOrAddr)}</div>` : ''}
           ${gnameClean ? `<div class="text-slate-400 text-xs mt-0.5 break-anywhere">${escapeHTML(gnameClean)}</div>` : ''}
         </div>
         <div class="row-chevron shrink-0">
@@ -704,9 +1128,15 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
 
             row.onclick = () => {
                 const p = new URLSearchParams(location.hash.slice(1));
-                p.set('view', 'service');
-                if (sid != null) p.set('service', sid);
-                if (gid != null) p.set('group', gid);
+                if (type === 'organisation') {
+                    p.set('view', 'org');
+                    if (oid != null) p.set('org', oid);
+                    if (gid != null) p.set('orgGroup', gid);
+                } else {
+                    p.set('view', 'service');
+                    if (sid != null) p.set('service', sid);
+                    if (gid != null) p.set('group', gid);
+                }
                 p.delete('q');
                 location.hash = '#' + p.toString();
                 haptic('impact');
@@ -759,6 +1189,62 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         try { refreshTitleMarquee(); } catch {}
     }
 
+    function mountWithMode(content, activeMode='services', showSwitch=true){
+        const container = document.createElement('div');
+        container.className = 'space-y-4';
+        if (showSwitch) container.appendChild(buildModeSwitch(activeMode));
+        container.appendChild(asNode(content));
+        screen().innerHTML = '';
+        screen().appendChild(container);
+    }
+
+    function asNode(content){
+        if (content instanceof HTMLElement) return content;
+        const wrap = document.createElement('div');
+        wrap.innerHTML = String(content ?? '');
+        return wrap;
+    }
+
+    function buildModeSwitch(activeMode='services'){
+        const wrap = document.createElement('div');
+        wrap.className = 'sticky top-14 z-30 pt-2 pb-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur';
+        wrap.innerHTML = `
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+        <span class="inline-flex h-2 w-2 rounded-full bg-gradient-to-r from-brand to-indigo-500 shadow-sm shadow-indigo-200"></span>
+        Навигация
+      </div>
+      <div class="inline-flex items-center rounded-full bg-slate-100/80 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 shadow-sm p-1">
+        <button type="button" data-mode="services" class="mode-tab px-3 py-1.5 rounded-full text-sm font-semibold transition">Услуги</button>
+        <button type="button" data-mode="orgs" class="mode-tab px-3 py-1.5 rounded-full text-sm font-semibold transition">Организации</button>
+      </div>
+    </div>`;
+
+        const buttons = wrap.querySelectorAll('.mode-tab');
+        buttons.forEach(btn => {
+            const mode = btn.dataset.mode;
+            const isActive = mode === activeMode;
+            btn.className = [
+                'mode-tab px-3 py-1.5 rounded-full text-sm font-semibold transition',
+                isActive
+                    ? 'bg-white dark:bg-slate-900 text-brand shadow-sm border border-brand/30 dark:border-brand/40'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            ].join(' ');
+
+            btn.onclick = () => {
+                if (isActive) return;
+                haptic('impact');
+                if (mode === 'services') {
+                    updateHash({ view:'groups', group:null, service:null, orgGroup:null, org:null, q:'' });
+                } else {
+                    updateHash({ view:'org-groups', group:null, service:null, orgGroup:null, org:null, q:'' });
+                }
+            };
+        });
+
+        return wrap;
+    }
+
 
     function pageLoading(msg){ return `<div class="flex flex-col items-center justify-center py-16 gap-3"><div class="w-10 h-10 border-2 border-slate-300 dark:border-slate-700 border-t-brand rounded-full animate-spin"></div><p class="text-sm text-slate-500">${escapeHTML(msg)}</p></div>`; }
     function pageError(msg){ return `<div class="rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-200 p-4">${escapeHTML(msg)}</div>`; }
@@ -771,6 +1257,11 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
     function getServiceId(s){ return s.servicesID ?? s.serviceId ?? s.id ?? s.ID ?? s.ServiceID ?? s.ServicesID ?? Math.random().toString(36).slice(2); }
     function getServiceTitle(s){ return s.shortDescription ?? s.serviceName ?? s.title ?? 'Услуга'; }
     function getProviderName(s){ return s.providerName ?? s.provider ?? s.ownerName ?? s.contactPerson ?? ''; }
+    function getOrgGroupId(g){ return g.groupId ?? g.group_id ?? g.id ?? g.ID ?? g.GroupID ?? g.groupID ?? Math.random().toString(36).slice(2); }
+    function getOrgGroupName(g){ return g.groupName ?? g.group_name ?? g.name ?? g.title ?? 'Группа организаций'; }
+    function getOrganisationId(o){ return o.organisation_id ?? o.organisationId ?? o.organizationsID ?? o.organization_id ?? o.id ?? o.ID ?? o.organisationID ?? Math.random().toString(36).slice(2); }
+    function getOrganisationName(o){ return o.name ?? o.organisationName ?? o.organizationName ?? o.title ?? 'Организация'; }
+    function getOrganisationAddress(o){ return o.address ?? o.location ?? o.addr ?? ''; }
     function formatPhoneNumbers(text){ const lines=String(text||'').split('\n'); return lines.map(l=>{ const t=l.trim(); const num=t.replace(/[^\d+]/g,''); if(num.length>=7){ return `<a class=\"underline underline-offset-2\" href=\"tel:${escapeHTML(num)}\">${escapeHTML(t)}</a>`;} return escapeHTML(t); }).join('<br>'); }
     function linkify(text){ const esc=escapeHTML(String(text||'')); const urlRe=/\b((?:https?:\/\/|ftp:\/\/)[^\s<>"']+|www\.[^\s<>"']+)/gi; return esc.replace(urlRe,(m)=>{ const href=m.startsWith('http')||m.startsWith('ftp')? m : ('https://'+m); return `<a class=\"underline underline-offset-2 break-anywhere\" href=\"${href}\" target=\"_blank\" rel=\"noopener noreferrer\">${m}</a>`; }); }
     function calculateAverageRating(list){ if(!Array.isArray(list)||list.length===0) return 0; const nums=list.map(x=>Number(x.feedbackRating)).filter(n=>Number.isFinite(n)); if(nums.length===0) return 0; const avg=nums.reduce((a,b)=>a+b,0)/nums.length; return Math.round(avg*10)/10; }

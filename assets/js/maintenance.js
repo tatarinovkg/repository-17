@@ -1,4 +1,5 @@
 (function () {
+    const state = window.maintenanceState = window.maintenanceState || { status: 'pending' };
     const overlay = document.getElementById('maintenance-overlay');
     if (!overlay) return;
 
@@ -18,6 +19,7 @@
             overlay.classList.remove('hidden');
             loadingEl?.classList.remove('hidden');
             contentEl?.classList.add('hidden');
+            state.status = 'pending';
         } else if (mode === 'content') {
             overlay.classList.remove('hidden');
             loadingEl?.classList.add('hidden');
@@ -37,7 +39,7 @@
     };
 
     const checkMaintenance = async () => {
-        setView('loading');
+        hideOverlay();
         updatedEl.textContent = 'Обновляем статус...';
 
         try {
@@ -59,18 +61,22 @@
                 titleEl.textContent = 'Сервисы сейчас недоступны';
                 detailEl.textContent = message;
                 setView('content');
+                state.status = 'active';
                 window.dispatchEvent(new CustomEvent('maintenance:active', {detail: data}));
             } else {
                 hideOverlay();
+                state.status = 'ok';
                 window.dispatchEvent(new CustomEvent('maintenance:ok', {detail: data}));
             }
         } catch (error) {
-            titleEl.textContent = 'Нет ответа от сервера';
-            detailEl.textContent = 'Не удаётся связаться с сервером. Скорее всего он недоступен - пробуем восстановить соединение.';
-            whatEl.textContent = 'Проверяем подключение и перезапускаем сервисы';
-            whenEl.textContent = 'Вернёмся, как только сервер ответит';
+            console.error('Maintenance check failed', error);
+            titleEl.textContent = 'Сервисы сейчас недоступны';
+            detailEl.textContent = 'Не удаётся связаться с сервером. Возможно идут работы или сервер временно недоступен.';
+            whatEl.textContent = 'Проверяем подключение и возобновляем сервисы';
+            whenEl.textContent = 'Как только сервер ответит, вернёмся сразу';
+            state.status = 'active';
             setView('content');
-            window.dispatchEvent(new CustomEvent('maintenance:error', {detail: {error: error?.message}}));
+            window.dispatchEvent(new CustomEvent('maintenance:active', {detail: {error: error?.message}}));
         } finally {
             stampUpdated();
         }
