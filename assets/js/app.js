@@ -1207,14 +1207,14 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
 
     function buildModeSwitch(activeMode='services'){
         const wrap = document.createElement('div');
-        wrap.className = 'sticky top-14 z-30 pt-2 pb-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur';
+        wrap.className = 'pt-1 pb-1';
         wrap.innerHTML = `
     <div class="flex items-center justify-between gap-3 flex-wrap">
       <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
         <span class="inline-flex h-2 w-2 rounded-full bg-gradient-to-r from-brand to-indigo-500 shadow-sm shadow-indigo-200"></span>
         Навигация
       </div>
-      <div class="inline-flex items-center rounded-full bg-slate-100/80 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 shadow-sm p-1">
+      <div class="inline-flex items-center rounded-full border border-slate-200 dark:border-slate-700 p-1">
         <button type="button" data-mode="services" class="mode-tab px-3 py-1.5 rounded-full text-sm font-semibold transition">Услуги</button>
         <button type="button" data-mode="orgs" class="mode-tab px-3 py-1.5 rounded-full text-sm font-semibold transition">Организации</button>
       </div>
