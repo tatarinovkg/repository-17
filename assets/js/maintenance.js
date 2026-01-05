@@ -12,7 +12,7 @@
     const loadingEl = document.getElementById('maintenance-loading');
     const contentEl = document.getElementById('maintenance-content');
 
-    const WORK_URL = 'https://bot.ovimex72.ru/api/works';
+    const WORK_URL = 'https://api.s.tkgn.ru/api/works';
 
     const setView = (mode) => {
         if (mode === 'loading') {

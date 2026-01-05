@@ -1,5 +1,5 @@
 const tg = window.Telegram ? window.Telegram.WebApp : null;
-    const apiBaseUrl = 'https://bot.ovimex72.ru/api/';
+    const apiBaseUrl = 'https://api.s.tkgn.ru/api/';
     const MOCK_MODE = false; // переключить на true для офлайн-тестов
     const mockData = {
         groups: [
