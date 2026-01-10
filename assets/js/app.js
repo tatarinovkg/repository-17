@@ -1291,11 +1291,11 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
 
     async function showAnalyticsScreen(skipCheck=false){
         if(!skipCheck && !ensureAdminAccess()) return;
-        setTitle('Analytics');
+        setTitle('Статистика');
         setBackVisible(true);
         const container = document.createElement('div');
         container.className = 'space-y-4';
-        container.innerHTML = pageLoading('Loading weekly analytics...');
+        container.innerHTML = pageLoading('Загружаю статистику за неделю...');
         screen().innerHTML = '';
         screen().appendChild(container);
 
