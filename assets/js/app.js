@@ -1238,11 +1238,11 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
           </div>
           <button type="button" id="adminLoginClose" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Закрыть">×</button>
         </div>
-        <p class="text-sm text-slate-600 dark:text-slate-300">Введите пароль администратора, чтобы открыть статистику. По умолчанию пароль: <strong>0000</strong>.</p>
+        <p class="text-sm text-slate-600 dark:text-slate-300">Введите пароль администратора, чтобы открыть статистику.</p>
         <form id="adminLoginForm" class="space-y-3">
           <div>
             <label class="block text-sm font-medium mb-1">Пароль</label>
-            <input type="password" id="adminPasswordInput" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand" autocomplete="off" placeholder="0000" />
+            <input type="password" id="adminPasswordInput" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand" autocomplete="off" placeholder="Пароль" />
             <div id="adminLoginError" class="text-sm text-red-600 mt-1 hidden"></div>
           </div>
           <div class="flex items-center justify-end gap-2">
