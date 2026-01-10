@@ -90,6 +90,11 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
     const orgListsCache = new Map(); // orgGroupId -> list of organisations
     const orgDetailsCache = new Map(); // organisationId -> details
 
+    const analyticsClientId = ensureAnalyticsClientId();
+    let analyticsToken = loadAdminToken();
+    let analyticsTokenExp = loadAdminTokenExp();
+    let adminUnlocked = isAdminTokenValid();
+
     let deepLinkForceHome = false;
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -100,6 +105,24 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         showInitialLoading();
         waitMaintenanceThenStart();
     });
+
+    let orgSecretCount = 0;
+    let orgSecretTimer = null;
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-mode="orgs"]');
+        if (btn) handleOrgSecretTap();
+    });
+
+    function handleOrgSecretTap(){
+        if (isAdminTokenValid()) return;
+        orgSecretCount += 1;
+        if (orgSecretTimer) clearTimeout(orgSecretTimer);
+        orgSecretTimer = setTimeout(() => { orgSecretCount = 0; }, 5000);
+        if (orgSecretCount >= 10){
+            orgSecretCount = 0;
+            showAdminLoginModal();
+        }
+    }
     function fastThemeBoot(){
         try{
             const override = localStorage.getItem('themeOverride'); // 'user' | null
@@ -115,6 +138,9 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
     }
     function bindHeader(){
         document.getElementById('openSearch').onclick = ()=> { updateHash({ view: 'search', q: '' }); };
+        const statsBtn = document.getElementById('openStats');
+        if (statsBtn) statsBtn.onclick = ()=> { if (ensureAdminAccess()) { updateHash({ view:'stats' }); haptic('impact'); } };
+        updateAdminUi();
         document.getElementById('themeToggle').onclick = ()=> { toggleTheme(); haptic('impact'); };
         const backBtn = document.getElementById('navBack');
         if (backBtn) backBtn.onclick = ()=> goBackSafe();
@@ -203,6 +229,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
 
         setBackVisible(!isRoot);
 
+        if (view === 'stats')   { showAnalyticsScreen(); return; }
         if (view === 'search') { showSearchScreen(q); return; }
         if (serviceId)         { showServiceScreen(serviceId); return; }
         if (groupId)           { showGroupScreen(groupId); return; }
@@ -314,10 +341,12 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
     function setHeaderActionsForRoot(isRoot) {
         const searchBtn = document.getElementById('openSearch');
         const themeBtn  = document.getElementById('themeToggle');
+        const statsBtn  = document.getElementById('openStats');
 
-        [searchBtn, themeBtn].forEach(el => {
+        [searchBtn, themeBtn, statsBtn].forEach(el => {
             if (!el) return;
-            if (isRoot) {
+            const allow = isRoot && (el !== statsBtn || isAdminTokenValid());
+            if (allow) {
                 el.classList.remove('hidden');
                 el.style.display = 'inline-flex';
                 el.setAttribute('aria-hidden', 'false');
@@ -355,6 +384,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         }
         if(!groupsCache) return;
         renderGroups(groupsCache||[]);
+        sendAnalyticsEvent('view', { view:'groups', metadata:{groups:(groupsCache||[]).length||0} });
         ensureHeaderVisible && ensureHeaderVisible();
     }
 
@@ -476,6 +506,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         const services = await fetchServices(groupId);
         if (services === null) return;
         renderServices(services, groupId);
+        sendAnalyticsEvent('view', { view:'group', entityType:'group', entityId:groupId, metadata:{services:Array.isArray(services)?services.length:(services?.items?.length||0)} });
 
         ensureHeaderVisible && ensureHeaderVisible();
     }
@@ -597,6 +628,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
             }
         }
         renderServiceDetails(service);
+        sendAnalyticsEvent('view', { view:'service', entityType:'service', entityId:serviceId });
         ensureHeaderVisible && ensureHeaderVisible();
         fetchFeedbacks(serviceId);
     }
@@ -668,6 +700,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         }
         if(!orgGroupsCache) return;
         renderOrgGroups(orgGroupsCache || []);
+        sendAnalyticsEvent('view', { view:'org-groups', metadata:{groups:(orgGroupsCache||[]).length||0} });
         ensureHeaderVisible && ensureHeaderVisible();
     }
 
@@ -761,6 +794,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         const organisations = await fetchOrganisations(groupId);
         if (organisations === null) return;
         renderOrganisations(organisations, groupId);
+        sendAnalyticsEvent('view', { view:'org-group', entityType:'org_group', entityId:groupId, metadata:{organisations:Array.isArray(organisations)?organisations.length:(organisations?.items?.length||0)} });
 
         ensureHeaderVisible && ensureHeaderVisible();
     }
@@ -861,6 +895,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
             }
         }
         renderOrganisationDetails(organisation, groupId);
+        sendAnalyticsEvent('view', { view:'organisation', entityType:'organisation', entityId:orgId });
         ensureHeaderVisible && ensureHeaderVisible();
     }
 
@@ -939,7 +974,8 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
     }
 
     function showSearchScreen(q){
-        setTitle('Поиск');
+        setTitle('
+        sendAnalyticsEvent('view', { view:'search' });Поиск');
 
         const view = document.createElement('div');
         view.className = 'space-y-3';
@@ -1047,11 +1083,16 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
                 return title.includes(ql) || prov.includes(ql);
             });
             renderSearchResults(filtered, stateEl, listEl);
+            sendAnalyticsEvent('search', { view:'search', query: query, metadata:{ resultCount: filtered.length } });
             return;
         }
         fetch(`${apiBaseUrl}search_services?query=${encodeURIComponent(query)}`, { signal: searchAbort.signal })
             .then(r=>r.json())
-            .then(items=> renderSearchResults(items||[], stateEl, listEl))
+            .then(items=> {
+                renderSearchResults(items||[], stateEl, listEl);
+                const count = Array.isArray(items) ? items.length : 0;
+                sendAnalyticsEvent('search', { view:'search', query: query, metadata:{ resultCount: count } });
+            })
             .catch(()=> { stateEl.textContent='Ошибка запроса'; });
     }
 
@@ -1146,6 +1187,261 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         });
 
         listEl.appendChild(frag);
+    }
+
+
+
+
+    
+    function ensureAdminAccess(){
+        if (isAdminTokenValid()) {
+            adminUnlocked = true;
+            updateAdminUi();
+            return true;
+        }
+        showAdminLoginModal();
+        return false;
+    }
+
+    function updateAdminUi(){
+        const statsBtn = document.getElementById('openStats');
+        const isAdmin = isAdminTokenValid();
+        if (statsBtn){
+            statsBtn.classList.toggle('hidden', !isAdmin);
+            statsBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+        }
+    }
+
+    async function logoutAdmin(){
+        try{
+            await fetch(apiBaseUrl + 'analytics/logout', {
+                method:'POST',
+                headers:{ 'Content-Type':'application/json', 'X-Analytics-Token': analyticsToken }
+            });
+        }catch(e){}
+        analyticsToken=''; analyticsTokenExp=''; adminUnlocked=false; clearAdminToken(); updateAdminUi();
+    }
+
+    function showAdminLoginModal(){
+        const existing=document.getElementById('admin-login-overlay');
+        if (existing) { existing.remove(); }
+
+        const overlay=document.createElement('div');
+        overlay.id='admin-login-overlay';
+        overlay.className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4';
+        overlay.innerHTML=`
+      <div class="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-800 p-5 space-y-4 animate-in">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="text-xs uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">Hidden area</div>
+            <div class="text-lg font-semibold text-brand">???? ? ?????-??????????</div>
+          </div>
+          <button type="button" id="adminLoginClose" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="???????">?</button>
+        </div>
+        <p class="text-sm text-slate-600 dark:text-slate-300">??????? ?????? ??????????????, ????? ??????? ??????????. ?????????: ???????????? ????????? ??????.</p>
+        <form id="adminLoginForm" class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">??????</label>
+            <input type="password" id="adminPasswordInput" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand" autocomplete="off" />
+            <div id="adminLoginError" class="text-sm text-red-600 mt-1 hidden"></div>
+          </div>
+          <div class="flex items-center justify-end gap-2">
+            <button type="button" id="adminLoginBack" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">?????</button>
+            <button type="submit" class="px-3 py-2 rounded-lg bg-brand text-white font-semibold hover:opacity-90">?????</button>
+          </div>
+        </form>
+      </div>`;
+        document.body.appendChild(overlay);
+
+        const close=()=>{ overlay.remove(); };
+        overlay.querySelector('#adminLoginClose').onclick = close;
+        overlay.querySelector('#adminLoginBack').onclick = close;
+        const form = overlay.querySelector('#adminLoginForm');
+        const input = overlay.querySelector('#adminPasswordInput');
+        const err = overlay.querySelector('#adminLoginError');
+        input.focus();
+        form.onsubmit = async (e)=>{
+            e.preventDefault();
+            err.classList.add('hidden');
+            const password = (input.value||'').trim();
+            if(!password){ err.textContent='??????? ??????'; err.classList.remove('hidden'); return; }
+            try{
+                const r = await fetch(apiBaseUrl+'analytics/login', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ password, label: analyticsClientId })
+                });
+                if(r.status === 401){ err.textContent='???????? ??????'; err.classList.remove('hidden'); return; }
+                if(!r.ok) throw new Error('bad response');
+                const data = await r.json();
+                analyticsToken = data.token;
+                analyticsTokenExp = data.expires_at;
+                adminUnlocked = true;
+                storeAdminToken(analyticsToken, analyticsTokenExp);
+                updateAdminUi();
+                close();
+                showAnalyticsScreen();
+            }catch(ex){
+                err.textContent='?????? ??? ?????'; err.classList.remove('hidden');
+            }
+        };
+    }
+
+    async function showAnalyticsScreen(){
+        if(!ensureAdminAccess()) return;
+        setTitle('Analytics');
+        setBackVisible(true);
+        const container = document.createElement('div');
+        container.className = 'space-y-4';
+        container.innerHTML = pageLoading('Loading weekly analytics...');
+        screen().innerHTML = '';
+        screen().appendChild(container);
+
+        try{
+            const r = await fetch(apiBaseUrl + 'analytics/weekly_summary', { cache: 'no-store', headers: { 'X-Analytics-Token': analyticsToken } });
+            if(r.status === 401){
+                clearAdminToken(); adminUnlocked=false; updateAdminUi();
+                container.innerHTML = pageError('????? ???? ??????????????.');
+                return;
+            }
+            if(!r.ok) throw new Error('Bad response');
+            const data = await r.json();
+            renderAnalyticsSummary(container, data);
+            sendAnalyticsEvent('view', { view: 'analytics' });
+        }catch(e){
+            console.error(e);
+            container.innerHTML = pageError('Failed to load analytics. Try again later.');
+        }
+    }
+
+    function renderAnalyticsSummary(container, data){
+        const totals = data?.totals || {};
+        const windowInfo = data?.window || {};
+        const daily = Array.isArray(data?.daily) ? data.daily : [];
+        const byEvent = Array.isArray(data?.by_event_type) ? data.by_event_type : [];
+        const topServices = Array.isArray(data?.top_services) ? data.top_services : [];
+        const topOrgs = Array.isArray(data?.top_organisations) ? data.top_organisations : [];
+        const topQueries = Array.isArray(data?.top_queries) ? data.top_queries : [];
+        const recent = Array.isArray(data?.recent_events) ? data.recent_events : [];
+        const maxDaily = Math.max(...daily.map(d => Number(d.total) || 0), 1);
+
+        container.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'space-y-4';
+        wrap.innerHTML = `
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <div class="text-xs uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">7 days</div>
+        <div class="text-lg font-semibold text-brand">${escapeHTML(windowInfo.start || '')} - ${escapeHTML(windowInfo.end || '')}</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-semibold" id="analyticsLogout">?????</button>
+        <button type="button" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-semibold" id="analyticsReload">Refresh</button>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
+        <div class="text-sm text-slate-500 dark:text-slate-400">Events</div>
+        <div class="text-2xl font-bold">${Number(totals.events || 0)}</div>
+      </div>
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
+        <div class="text-sm text-slate-500 dark:text-slate-400">Unique visitors</div>
+        <div class="text-2xl font-bold">${Number(totals.unique_visitors || 0)}</div>
+      </div>
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
+        <div class="text-sm text-slate-500 dark:text-slate-400">Unique clients</div>
+        <div class="text-2xl font-bold">${Number(totals.unique_clients || totals.unique_users || 0)}</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
+        <div class="font-semibold mb-3">Daily trend</div>
+        <div class="space-y-2" id="analyticsDaily"></div>
+      </div>
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
+        <div class="font-semibold mb-3">By event type</div>
+        <div class="space-y-2" id="analyticsByEvent"></div>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
+        <div class="font-semibold mb-3">Top services</div>
+        <div class="space-y-2" id="analyticsTopServices"></div>
+      </div>
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
+        <div class="font-semibold mb-3">Top organisations</div>
+        <div class="space-y-2" id="analyticsTopOrgs"></div>
+      </div>
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
+        <div class="font-semibold mb-3">Popular queries</div>
+        <div class="space-y-2" id="analyticsTopQueries"></div>
+      </div>
+    </div>
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
+      <div class="font-semibold mb-3">Latest events</div>
+      <div class="space-y-2" id="analyticsRecent"></div>
+    </div>
+        `;
+        container.appendChild(wrap);
+
+        const dailyBox = wrap.querySelector('#analyticsDaily');
+        if(!daily.length){ dailyBox.innerHTML = '<div class="text-sm text-slate-500">No events yet.</div>'; }
+        else{
+            daily.forEach(d => {
+                const row=document.createElement('div');
+                row.className='flex items-center gap-2';
+                const total=Number(d.total)||0;
+                const width=Math.max(8, (total/maxDaily)*100);
+                row.innerHTML=`<div class="w-24 text-sm font-medium">${escapeHTML(d.day||'')}</div>
+        <div class="flex-1 h-2 rounded-full bg-slate-200 dark:bg-slate-800 relative overflow-hidden">
+          <span class="absolute inset-y-0 left-0 rounded-full bg-brand" style="width:${width}%"></span>
+        </div>
+        <div class="w-12 text-right text-sm">${total}</div>`;
+                dailyBox.appendChild(row);
+            });
+        }
+
+        const byEventBox = wrap.querySelector('#analyticsByEvent');
+        renderRankedList(byEventBox, byEvent, (row)=>row.event_type || 'unknown', 'total', 'No grouped events yet');
+
+        renderRankedList(wrap.querySelector('#analyticsTopServices'), topServices, (row)=>row.title || `ID ${row.service_id||'-'}`, 'total', 'No service views yet');
+        renderRankedList(wrap.querySelector('#analyticsTopOrgs'), topOrgs, (row)=>row.title || `ID ${row.organisation_id||'-'}`, 'total', 'No organisation views yet');
+        renderRankedList(wrap.querySelector('#analyticsTopQueries'), topQueries, (row)=>row.query || '-', 'total', 'No search activity yet');
+
+        const recentBox = wrap.querySelector('#analyticsRecent');
+        if(!recent.length){ recentBox.innerHTML = '<div class="text-sm text-slate-500">No recent events yet.</div>'; }
+        else{
+            recent.forEach(evt => {
+                const item=document.createElement('div');
+                item.className='rounded-lg border border-slate-200 dark:border-slate-800 p-3';
+                const metaParts=[];
+                if(evt.entity_type){ metaParts.push(escapeHTML(evt.entity_type)); }
+                if(evt.entity_id){ metaParts.push(`#${evt.entity_id}`); }
+                if(evt.query){ metaParts.push(`"${escapeHTML(evt.query)}"`); }
+                item.innerHTML=`<div class="flex items-center justify-between text-sm font-semibold text-brand"><span>${escapeHTML(evt.event_type||'')}</span><span>${formatDateTimeLocal(evt.created_at)}</span></div>
+        <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">${metaParts.join(' | ') || '-'}</div>`;
+                recentBox.appendChild(item);
+            });
+        }
+
+        const reload = wrap.querySelector('#analyticsReload');
+        if (reload) reload.onclick = () => showAnalyticsScreen();
+        const logout = wrap.querySelector('#analyticsLogout');
+        if (logout) logout.onclick = () => { logoutAdmin(); screen().innerHTML = pageError('?????? ??????.'); };
+
+        function renderRankedList(box, list, labelFn, valueKey, emptyText){
+            if(!box) return;
+            if(!Array.isArray(list) || !list.length){ box.innerHTML = `<div class="text-sm text-slate-500">${emptyText}</div>`; return; }
+            box.innerHTML='';
+            list.forEach((row, idx)=>{
+                const val=Number(row?.[valueKey]||0);
+                const label=labelFn(row, idx);
+                const rowEl=document.createElement('div');
+                rowEl.className='flex items-center justify-between gap-3 text-sm';
+                rowEl.innerHTML=`<div class="font-medium">${idx+1}. ${escapeHTML(label||'-')}</div><div class="text-slate-500">${val}</div>`;
+                box.appendChild(rowEl);
+            });
+        }
     }
 
     function debounce(fn, ms=200){
@@ -1265,3 +1561,44 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
     function formatPhoneNumbers(text){ const lines=String(text||'').split('\n'); return lines.map(l=>{ const t=l.trim(); const num=t.replace(/[^\d+]/g,''); if(num.length>=7){ return `<a class=\"underline underline-offset-2\" href=\"tel:${escapeHTML(num)}\">${escapeHTML(t)}</a>`;} return escapeHTML(t); }).join('<br>'); }
     function linkify(text){ const esc=escapeHTML(String(text||'')); const urlRe=/\b((?:https?:\/\/|ftp:\/\/)[^\s<>"']+|www\.[^\s<>"']+)/gi; return esc.replace(urlRe,(m)=>{ const href=m.startsWith('http')||m.startsWith('ftp')? m : ('https://'+m); return `<a class=\"underline underline-offset-2 break-anywhere\" href=\"${href}\" target=\"_blank\" rel=\"noopener noreferrer\">${m}</a>`; }); }
     function calculateAverageRating(list){ if(!Array.isArray(list)||list.length===0) return 0; const nums=list.map(x=>Number(x.feedbackRating)).filter(n=>Number.isFinite(n)); if(nums.length===0) return 0; const avg=nums.reduce((a,b)=>a+b,0)/nums.length; return Math.round(avg*10)/10; }
+
+
+    function formatDateTimeLocal(ts){ try{ return new Date(ts).toLocaleString(); }catch(e){ return ts||''; } }
+
+    function ensureAnalyticsClientId(){
+        try{
+            const key='svc_analytics_client_id';
+            const stored=localStorage.getItem(key);
+            if(stored) return stored;
+            const fresh=(typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():'client-'+Math.random().toString(16).slice(2))+'-'+Date.now();
+            localStorage.setItem(key,fresh);
+            return fresh;
+        }catch(e){
+            return 'anon-'+Math.random().toString(16).slice(2);
+        }
+    }
+
+    function loadAdminToken(){ try{ return localStorage.getItem('svc_admin_token') || ''; }catch{ return ''; } }
+    function loadAdminTokenExp(){ try{ return localStorage.getItem('svc_admin_token_exp') || ''; }catch{ return ''; } }
+    function storeAdminToken(token, expiresAt){ try{ localStorage.setItem('svc_admin_token', token||''); localStorage.setItem('svc_admin_token_exp', expiresAt||''); }catch{} }
+    function clearAdminToken(){ storeAdminToken('', ''); }
+    function isAdminTokenValid(){ if(!analyticsToken) return false; if(!analyticsTokenExp) return true; try{ return new Date(analyticsTokenExp) > new Date(); }catch{ return true; } }
+
+    function sendAnalyticsEvent(eventType, payload={}){
+        if(!eventType) return;
+        const body={
+            event_type:eventType,
+            client_id:analyticsClientId,
+            view:payload.view,
+            entity_type:payload.entityType,
+            entity_id:payload.entityId,
+            query:payload.query,
+            metadata:payload.metadata,
+            occurred_at:new Date().toISOString()
+        };
+        try{
+            fetch(apiBaseUrl+'analytics/track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),keepalive:true}).catch(()=>{});
+        }catch(e){
+            console.warn('analytics send failed',e);
+        }
+    }
