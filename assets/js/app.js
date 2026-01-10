@@ -1340,61 +1340,61 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         wrap.innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <div class="text-xs uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">7 days</div>
+        <div class="text-xs uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">7 дней</div>
         <div class="text-lg font-semibold text-brand">${escapeHTML(windowInfo.start || '')} - ${escapeHTML(windowInfo.end || '')}</div>
       </div>
       <div class="flex items-center gap-2">
-        <button type="button" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-semibold" id="analyticsLogout">?????</button>
-        <button type="button" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-semibold" id="analyticsReload">Refresh</button>
+        <button type="button" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-semibold" id="analyticsLogout">Выйти</button>
+        <button type="button" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-semibold" id="analyticsReload">Обновить</button>
       </div>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
       <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
-        <div class="text-sm text-slate-500 dark:text-slate-400">Events</div>
+        <div class="text-sm text-slate-500 dark:text-slate-400">События</div>
         <div class="text-2xl font-bold">${Number(totals.events || 0)}</div>
       </div>
       <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
-        <div class="text-sm text-slate-500 dark:text-slate-400">Unique visitors</div>
+        <div class="text-sm text-slate-500 dark:text-slate-400">Уникальные визиты (IP/UA)</div>
         <div class="text-2xl font-bold">${Number(totals.unique_visitors || 0)}</div>
       </div>
       <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
-        <div class="text-sm text-slate-500 dark:text-slate-400">Unique clients</div>
+        <div class="text-sm text-slate-500 dark:text-slate-400">Уникальные клиенты (client_id)</div>
         <div class="text-2xl font-bold">${Number(totals.unique_clients || totals.unique_users || 0)}</div>
       </div>
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
       <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
-        <div class="font-semibold mb-3">Daily trend</div>
+        <div class="font-semibold mb-3">Динамика по дням</div>
         <div class="space-y-2" id="analyticsDaily"></div>
       </div>
       <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
-        <div class="font-semibold mb-3">By event type</div>
+        <div class="font-semibold mb-3">По типам событий</div>
         <div class="space-y-2" id="analyticsByEvent"></div>
       </div>
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
       <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
-        <div class="font-semibold mb-3">Top services</div>
+        <div class="font-semibold mb-3">Топ сервисов</div>
         <div class="space-y-2" id="analyticsTopServices"></div>
       </div>
       <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
-        <div class="font-semibold mb-3">Top organisations</div>
+        <div class="font-semibold mb-3">Топ организаций</div>
         <div class="space-y-2" id="analyticsTopOrgs"></div>
       </div>
       <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
-        <div class="font-semibold mb-3">Popular queries</div>
+        <div class="font-semibold mb-3">Популярные запросы</div>
         <div class="space-y-2" id="analyticsTopQueries"></div>
       </div>
     </div>
     <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-white/90 dark:bg-slate-900/80">
-      <div class="font-semibold mb-3">Latest events</div>
+      <div class="font-semibold mb-3">Последние события</div>
       <div class="space-y-2" id="analyticsRecent"></div>
     </div>
         `;
         container.appendChild(wrap);
 
         const dailyBox = wrap.querySelector('#analyticsDaily');
-        if(!daily.length){ dailyBox.innerHTML = '<div class="text-sm text-slate-500">No events yet.</div>'; }
+        if(!daily.length){ dailyBox.innerHTML = '<div class="text-sm text-slate-500">Нет событий за период.</div>'; }
         else{
             daily.forEach(d => {
                 const row=document.createElement('div');
@@ -1411,14 +1411,14 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         }
 
         const byEventBox = wrap.querySelector('#analyticsByEvent');
-        renderRankedList(byEventBox, byEvent, (row)=>row.event_type || 'unknown', 'total', 'No grouped events yet');
+        renderRankedList(byEventBox, byEvent, (row)=>row.event_type || 'неизвестно', 'total', 'Нет событий по типам');
 
-        renderRankedList(wrap.querySelector('#analyticsTopServices'), topServices, (row)=>row.title || `ID ${row.service_id||'-'}`, 'total', 'No service views yet');
-        renderRankedList(wrap.querySelector('#analyticsTopOrgs'), topOrgs, (row)=>row.title || `ID ${row.organisation_id||'-'}`, 'total', 'No organisation views yet');
-        renderRankedList(wrap.querySelector('#analyticsTopQueries'), topQueries, (row)=>row.query || '-', 'total', 'No search activity yet');
+        renderRankedList(wrap.querySelector('#analyticsTopServices'), topServices, (row)=>row.title || `ID ${row.service_id||'-'}`, 'total', 'Нет просмотров сервисов');
+        renderRankedList(wrap.querySelector('#analyticsTopOrgs'), topOrgs, (row)=>row.title || `ID ${row.organisation_id||'-'}`, 'total', 'Нет просмотров организаций');
+        renderRankedList(wrap.querySelector('#analyticsTopQueries'), topQueries, (row)=>row.query || '-', 'total', 'Нет поисковых запросов');
 
         const recentBox = wrap.querySelector('#analyticsRecent');
-        if(!recent.length){ recentBox.innerHTML = '<div class="text-sm text-slate-500">No recent events yet.</div>'; }
+        if(!recent.length){ recentBox.innerHTML = '<div class="text-sm text-slate-500">Пока нет последних событий.</div>'; }
         else{
             recent.forEach(evt => {
                 const item=document.createElement('div');
@@ -1436,11 +1436,11 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
         const reload = wrap.querySelector('#analyticsReload');
         if (reload) reload.onclick = () => showAnalyticsScreen();
         const logout = wrap.querySelector('#analyticsLogout');
-        if (logout) logout.onclick = () => { logoutAdmin(); screen().innerHTML = pageError('?????? ??????.'); };
+        if (logout) logout.onclick = () => { logoutAdmin(); screen().innerHTML = pageError('Доступ закрыт.'); };
 
         function renderRankedList(box, list, labelFn, valueKey, emptyText){
             if(!box) return;
-            if(!Array.isArray(list) || !list.length){ box.innerHTML = `<div class="text-sm text-slate-500">${emptyText}</div>`; return; }
+            if(!Array.isArray(list) || !list.length){ box.innerHTML = `<div class="text-sm text-slate-500">${escapeHTML(emptyText)}</div>`; return; }
             box.innerHTML='';
             list.forEach((row, idx)=>{
                 const val=Number(row?.[valueKey]||0);
