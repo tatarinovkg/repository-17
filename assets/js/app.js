@@ -1264,31 +1264,32 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
             e.preventDefault();
             err.classList.add('hidden');
             const password = (input.value||'').trim();
-            if(!password){ err.textContent='??????? ??????'; err.classList.remove('hidden'); return; }
+            if(!password){ err.textContent='Введите пароль'; err.classList.remove('hidden'); return; }
             try{
                 const r = await fetch(apiBaseUrl+'analytics/login', {
                     method:'POST',
                     headers:{'Content-Type':'application/json'},
                     body: JSON.stringify({ password, label: analyticsClientId })
                 });
-                if(r.status === 401){ err.textContent='???????? ??????'; err.classList.remove('hidden'); return; }
+                if(r.status === 401){ err.textContent='Неверный пароль'; err.classList.remove('hidden'); return; }
                 if(!r.ok) throw new Error('bad response');
                 const data = await r.json();
                 analyticsToken = data.token;
-                analyticsTokenExp = data.expires_at;
+                const expRaw = data.expires_at || '';
+                analyticsTokenExp = expRaw ? new Date((expRaw.replace(' ', 'T')) + 'Z').toISOString() : '';
                 adminUnlocked = true;
                 storeAdminToken(analyticsToken, analyticsTokenExp);
                 updateAdminUi();
                 close();
-                showAnalyticsScreen();
+                showAnalyticsScreen(true);
             }catch(ex){
-                err.textContent='?????? ??? ?????'; err.classList.remove('hidden');
+                err.textContent='Ошибка при входе. Попробуйте ещё раз.'; err.classList.remove('hidden');
             }
         };
     }
 
-    async function showAnalyticsScreen(){
-        if(!ensureAdminAccess()) return;
+    async function showAnalyticsScreen(skipCheck=false){
+        if(!skipCheck && !ensureAdminAccess()) return;
         setTitle('Analytics');
         setBackVisible(true);
         const container = document.createElement('div');
@@ -1301,7 +1302,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
             const r = await fetch(apiBaseUrl + 'analytics/weekly_summary', { cache: 'no-store', headers: { 'X-Analytics-Token': analyticsToken } });
             if(r.status === 401){
                 clearAdminToken(); adminUnlocked=false; updateAdminUi();
-                container.innerHTML = pageError('????? ???? ??????????????.');
+                container.innerHTML = pageError('Нужен вход администратора.');
                 return;
             }
             if(!r.ok) throw new Error('Bad response');
@@ -1582,7 +1583,16 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
     function loadAdminTokenExp(){ try{ return localStorage.getItem('svc_admin_token_exp') || ''; }catch{ return ''; } }
     function storeAdminToken(token, expiresAt){ try{ localStorage.setItem('svc_admin_token', token||''); localStorage.setItem('svc_admin_token_exp', expiresAt||''); }catch{} }
     function clearAdminToken(){ storeAdminToken('', ''); }
-    function isAdminTokenValid(){ if(!analyticsToken) return false; if(!analyticsTokenExp) return true; try{ return new Date(analyticsTokenExp) > new Date(); }catch{ return true; } }
+    function isAdminTokenValid(){
+        if(!analyticsToken) return false;
+        if(!analyticsTokenExp) return true;
+        try{
+            const expStr = analyticsTokenExp.includes('T') ? analyticsTokenExp : (analyticsTokenExp.replace(' ', 'T') + 'Z');
+            return new Date(expStr) > new Date();
+        }catch{
+            return true;
+        }
+    }
 
     function sendAnalyticsEvent(eventType, payload={}){
         if(!eventType) return;
