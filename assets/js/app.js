@@ -1276,11 +1276,12 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
                 const data = await r.json();
                 analyticsToken = data.token;
                 const expRaw = data.expires_at || '';
-                analyticsTokenExp = expRaw ? new Date((expRaw.replace(' ', 'T')) + 'Z').toISOString() : '';
+                analyticsTokenExp = expRaw || '';
                 adminUnlocked = true;
                 storeAdminToken(analyticsToken, analyticsTokenExp);
                 updateAdminUi();
                 close();
+                updateHash({ view:'stats' });
                 showAnalyticsScreen(true);
             }catch(ex){
                 err.textContent='Ошибка при входе. Попробуйте ещё раз.'; err.classList.remove('hidden');
@@ -1300,18 +1301,25 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
 
         try{
             const r = await fetch(apiBaseUrl + 'analytics/weekly_summary', { cache: 'no-store', headers: { 'X-Analytics-Token': analyticsToken } });
+            let payload = null;
+            try { payload = await r.json(); } catch(_) {}
+
             if(r.status === 401){
                 clearAdminToken(); adminUnlocked=false; updateAdminUi();
                 container.innerHTML = pageError('Нужен вход администратора.');
+                showAdminLoginModal();
                 return;
             }
-            if(!r.ok) throw new Error('Bad response');
-            const data = await r.json();
-            renderAnalyticsSummary(container, data);
+            if(!r.ok){
+                const msg = (payload && payload.error) ? payload.error : `Ошибка ${r.status}`;
+                container.innerHTML = pageError(`Не удалось загрузить статистику: ${msg}`);
+                return;
+            }
+            renderAnalyticsSummary(container, payload || {});
             sendAnalyticsEvent('view', { view: 'analytics' });
         }catch(e){
             console.error(e);
-            container.innerHTML = pageError('Failed to load analytics. Try again later.');
+            container.innerHTML = pageError('Не удалось загрузить статистику. Попробуйте ещё раз.');
         }
     }
 
