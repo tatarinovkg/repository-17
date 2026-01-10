@@ -1233,21 +1233,21 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
       <div class="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-800 p-5 space-y-4 animate-in">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <div class="text-xs uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">Hidden area</div>
-            <div class="text-lg font-semibold text-brand">???? ? ?????-??????????</div>
+            <div class="text-xs uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">Панель администратора</div>
+            <div class="text-lg font-semibold text-brand">Вход в статистику</div>
           </div>
-          <button type="button" id="adminLoginClose" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="???????">?</button>
+          <button type="button" id="adminLoginClose" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Закрыть">×</button>
         </div>
-        <p class="text-sm text-slate-600 dark:text-slate-300">??????? ?????? ??????????????, ????? ??????? ??????????. ?????????: ???????????? ????????? ??????.</p>
+        <p class="text-sm text-slate-600 dark:text-slate-300">Введите пароль администратора, чтобы открыть статистику. По умолчанию пароль: <strong>0000</strong>.</p>
         <form id="adminLoginForm" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium mb-1">??????</label>
-            <input type="password" id="adminPasswordInput" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand" autocomplete="off" />
+            <label class="block text-sm font-medium mb-1">Пароль</label>
+            <input type="password" id="adminPasswordInput" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand" autocomplete="off" placeholder="0000" />
             <div id="adminLoginError" class="text-sm text-red-600 mt-1 hidden"></div>
           </div>
           <div class="flex items-center justify-end gap-2">
-            <button type="button" id="adminLoginBack" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">?????</button>
-            <button type="submit" class="px-3 py-2 rounded-lg bg-brand text-white font-semibold hover:opacity-90">?????</button>
+            <button type="button" id="adminLoginBack" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">Назад</button>
+            <button type="submit" class="px-3 py-2 rounded-lg bg-brand text-white font-semibold hover:opacity-90">Войти</button>
           </div>
         </form>
       </div>`;
