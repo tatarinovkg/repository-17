@@ -974,8 +974,8 @@ const tg = window.Telegram ? window.Telegram.WebApp : null;
     }
 
     function showSearchScreen(q){
-        setTitle('
-        sendAnalyticsEvent('view', { view:'search' });Поиск');
+        setTitle('Поиск');
+        sendAnalyticsEvent('view', { view:'search' });
 
         const view = document.createElement('div');
         view.className = 'space-y-3';
